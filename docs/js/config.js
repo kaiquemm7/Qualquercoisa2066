@@ -8,4 +8,4 @@
 
 const API_URL = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
   ? "http://localhost:3001/api"
-  : "https://TROQUE-PELA-URL-DO-SEU-BACKEND.onrender.com/api";
+  : "https://qualquercoisa2066.onrender.com/api";
