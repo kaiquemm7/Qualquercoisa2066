@@ -265,7 +265,7 @@ async function carregarFuncionarios() {
 async function carregarFornecedores() {
   const lista = await api("GET", "/fornecedores");
   const ehAdmin = usuarioAtual.papel === "administrador";
-  const iconeEditar = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>';
+    const iconeEditar = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>';
   const iconeExcluir = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>';
 
   document.getElementById("fornTable").innerHTML = lista.map(f => `
@@ -275,15 +275,13 @@ async function carregarFornecedores() {
       <td>${f.telefone || "—"}</td>
       <td>${f.email || "—"}</td>
       <td>${f.endereco || "—"}</td>
-      <td>${ehAdmin
-        ? `<div class="row-actions"><button class="icon-action danger" title="Excluir fornecedor" onclick="excluirFornecedor(${f.id})">${iconeExcluir}</button></div>`
-        : "—"}</td>
-      <td>${ehAdmin
-        ? `<div class="row-actions"><button class="icon-action" title="Editar fornecedor" onclick="editarFornecedor(${f.id})">${iconeEditar}</button></div>`
-        : "—"}</td>
-    </tr>`).join("");
+      <td><div class="row-actions">
+      ${ehAdmin ? `<button class="icon-action" title="Editar fornecedor" onclick="editarFornecedor(${f.id})">${iconeEditar}</button>` : ""}
+        ${ehAdmin ? `<button class="icon-action danger" title="Excluir fornecedor" onclick="excluirFornecedor(${f.id})">${iconeExcluir}</button>` : ""}
+      </div></td>
+    </tr>`).join("") ; 
+    '<tr class="empty-row"><td colspan="8">Nenhum fornecedor encontrado.</td></tr>';
 }
-
 // ---------- Auditoria ----------
 async function carregarAuditoria() {
   const lista = await api("GET", "/auditoria/logs");
