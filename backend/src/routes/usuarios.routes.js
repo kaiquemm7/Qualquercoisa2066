@@ -64,4 +64,31 @@ router.get("/:id/movimentacoes", authorize("administrador", "supervisor", "audit
   res.json(lista);
 });
 
+// ---------- Excluir funcionário ----------
+router.delete("/:id", authorize("administrador"), (req, res) => {
+  const alvoId = parseInt(req.params.id, 10);
+
+  if (alvoId === req.usuario.id) {
+    return res.status(400).json({ erro: "Você não pode excluir seu próprio usuário." });
+  }
+
+  const data = db.load();
+  const idx = data.usuarios.findIndex(u => u.id === alvoId);
+  if (idx === -1) return res.status(404).json({ erro: "Funcionário não encontrado." });
+
+  const alvo = data.usuarios[idx];
+
+  if (alvo.papel === "administrador") {
+    const totalAdmins = data.usuarios.filter(u => u.papel === "administrador").length;
+    if (totalAdmins <= 1) {
+      return res.status(400).json({ erro: "Não é possível excluir o único administrador do sistema." });
+    }
+  }
+
+  data.usuarios.splice(idx, 1);
+  db.save(data);
+  registrarLog({ usuarioId: req.usuario.id, usuarioNome: req.usuario.nome, acao: "EXCLUIR_USUARIO", entidade: "usuario", entidadeId: alvoId, detalhes: `Removido: ${alvo.usuario}` });
+  res.json({ mensagem: "Funcionário removido." });
+});
+
 module.exports = router;

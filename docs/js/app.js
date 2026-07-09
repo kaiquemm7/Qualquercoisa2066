@@ -242,6 +242,9 @@ async function carregarAlertas() {
 // ---------- Funcionários ----------
 async function carregarFuncionarios() {
   const lista = await api("GET", "/usuarios");
+  const ehAdmin = usuarioAtual.papel === "administrador";
+  const iconeExcluir = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>';
+
   document.getElementById("funcTable").innerHTML = lista.map(u => `
     <tr>
       <td><div class="prod-cell"><div class="avatar" style="width:28px;height:28px;font-size:11px;">${iniciais(u.nome)}</div><div class="prod-name">${u.nome}</div></div></td>
@@ -249,6 +252,11 @@ async function carregarFuncionarios() {
       <td><span class="badge saudavel"><i></i>${u.papel}</span></td>
       <td>${u.setor || "—"}</td>
       <td>${u.twoFactorAtivo ? "Ativo" : "Inativo"}</td>
+      <td>${ehAdmin
+        ? (u.id === usuarioAtual.id
+          ? '<span style="color:var(--text-muted); font-size:11.5px;">você</span>'
+          : `<div class="row-actions"><button class="icon-action danger" title="Excluir funcionário" onclick="excluirFuncionario(${u.id})">${iconeExcluir}</button></div>`)
+        : "—"}</td>
     </tr>`).join("");
 }
 
