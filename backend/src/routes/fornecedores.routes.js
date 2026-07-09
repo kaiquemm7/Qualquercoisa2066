@@ -58,7 +58,4 @@ router.delete("/:id", authorize("administrador"), (req, res) => {
   registrarLog(req.user.id, "fornecedor", "delete", fornecedorRemovido);
   res.json(sanitizar(fornecedorRemovido));
 });
-
-// 
-
 module.exports = router;
