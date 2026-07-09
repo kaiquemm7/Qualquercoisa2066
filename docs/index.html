@@ -57,6 +57,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>
         Movimentações
       </div>
+      <div class="nav-item" data-view="fornecedores">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="7" width="15" height="11" rx="1.5"/><path d="M16 11h3.5L22 14.5V18h-6"/><circle cx="6" cy="20" r="1.7"/><circle cx="18" cy="20" r="1.7"/></svg>
+        Fornecedores
+      </div>
       <div class="nav-item" data-view="alertas">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a7 7 0 00-7 7v4l-2 4h18l-2-4v-4a7 7 0 00-7-7z"/><path d="M9.5 20a2.5 2.5 0 005 0"/></svg>
         Alertas
@@ -64,10 +68,6 @@
       <div class="nav-item" data-view="funcionarios">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
         Funcionários
-      </div>
-      <div class="nav-item" data-view="fornecedores">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
-        Fornecedores
       </div>
       <div class="nav-item" data-view="auditoria">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2h9l5 5v13a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z"/><path d="M14 2v5h5M9 13h6M9 17h6"/></svg>
@@ -152,6 +152,18 @@
       </div>
     </div>
 
+    <!-- FORNECEDORES -->
+    <div class="view" id="view-fornecedores">
+      <div class="page-title-row">
+        <div><div class="page-title">Fornecedores</div><div class="page-sub">cadastro e vínculo com produtos</div></div>
+        <button class="btn primary" id="btnNovoFornecedor">Cadastrar fornecedor</button>
+      </div>
+      <div class="toolbar"><input id="fornecedorSearch" placeholder="Buscar por nome, CNPJ, contato ou categoria…"></div>
+      <div class="panel" style="padding:0;">
+        <div class="table-scroll"><table><thead><tr><th>Fornecedor</th><th>Categoria</th><th>Contato</th><th>Telefone</th><th>Produtos</th><th>Ações</th></tr></thead><tbody id="fornecedorTable"></tbody></table></div>
+      </div>
+    </div>
+
     <!-- MOVIMENTAÇÕES -->
     <div class="view" id="view-movimentacoes">
       <div class="page-title-row">
@@ -178,16 +190,7 @@
         <div class="table-scroll"><table><thead><tr><th>Nome</th><th>Usuário</th><th>Papel</th><th>Setor</th><th>2FA</th><th>Ações</th></tr></thead><tbody id="funcTable"></tbody></table></div>
       </div>
     </div>
-    <!-- Fornecedor -->
-    <div class="view" id="view-fornecedores">
-      <div class="page-title-row">
-        <div><div class="page-title">Fornecedores</div><div class="page-sub">cadastro e informações</div></div>
-        <button class="btn primary" id="btnNovoFornecedor">Novo fornecedor</button>
-      </div>
-      <div class="panel" style="padding:0;">
-        <div class="table-scroll"><table><thead><tr><th>Nome</th><th>CNPJ</th><th>Telefone</th><th>Email</th><th>Endereço</th></tr></thead><tbody id="fornTable"></tbody></table></div>
-      </div>
-    </div>
+
     <!-- AUDITORIA -->
     <div class="view" id="view-auditoria">
       <div class="page-title-row"><div><div class="page-title">Auditoria</div><div class="page-sub">log completo de ações no sistema</div></div></div>
@@ -197,8 +200,6 @@
     </div>
   </div>
 </div>
-
-
 
 <script src="js/config.js"></script>
 <script src="js/api.js"></script>

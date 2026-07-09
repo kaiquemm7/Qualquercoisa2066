@@ -8,11 +8,11 @@ const rateLimit = require("express-rate-limit");
 
 const authRoutes = require("./src/routes/auth.routes");
 const produtosRoutes = require("./src/routes/produtos.routes");
+const fornecedoresRoutes = require("./src/routes/fornecedores.routes");
 const movimentacoesRoutes = require("./src/routes/movimentacoes.routes");
 const dashboardRoutes = require("./src/routes/dashboard.routes");
 const alertasRoutes = require("./src/routes/alertas.routes");
 const usuariosRoutes = require("./src/routes/usuarios.routes");
-const fornecedoresRoutes = require("./src/routes/fornecedores.routes");
 const auditoriaRoutes = require("./src/routes/auditoria.routes");
 const db = require("./src/config/db");
 const fs = require("fs");
@@ -36,11 +36,11 @@ app.use(rateLimit({ windowMs: 60 * 1000, max: 300 }));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/produtos", produtosRoutes);
+app.use("/api/fornecedores", fornecedoresRoutes);
 app.use("/api/movimentacoes", movimentacoesRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/alertas", alertasRoutes);
 app.use("/api/usuarios", usuariosRoutes);
-app.use("/api/fornecedores", fornecedoresRoutes);
 app.use("/api/auditoria", auditoriaRoutes);
 
 app.get("/api/status", (req, res) => {

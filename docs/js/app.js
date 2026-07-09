@@ -11,6 +11,7 @@ const tipoLabel = { entrada:"Entrada", saida:"Saída", transferencia:"Transferê
 
 let usuarioAtual = null;
 let produtosCache = [];
+let fornecedoresCache = [];
 
 // ---------- Boot ----------
 window.addEventListener("DOMContentLoaded", () => {
@@ -24,8 +25,9 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnNovaMovimentacao").addEventListener("click", abrirModalMovimentacao);
   document.getElementById("btnNovoProduto").addEventListener("click", () => abrirModalProduto());
   document.getElementById("btnNovoFuncionario").addEventListener("click", abrirModalFuncionario);
-  document.getElementById("btnNovoFornecedor").addEventListener("click", abrirModalFornecedor);
   document.getElementById("stockSearch").addEventListener("input", filtrarEstoque);
+  document.getElementById("btnNovoFornecedor").addEventListener("click", () => abrirModalFornecedor());
+  document.getElementById("fornecedorSearch").addEventListener("input", filtrarFornecedores);
 
   if (getToken()) {
     carregarSessao();
@@ -89,12 +91,11 @@ function mostrarApp() {
   const podeGerenciarGente = ["administrador", "supervisor"].includes(usuarioAtual.papel);
   document.querySelectorAll('[data-view="funcionarios"]').forEach(el => el.classList.toggle("hidden", !podeGerenciarGente));
   document.querySelectorAll('[data-view="auditoria"]').forEach(el => el.classList.toggle("hidden", !["administrador","auditor"].includes(usuarioAtual.papel)));
-  document.querySelectorAll('[data-view="fornecedores"]').forEach(el => el.classList.toggle("hidden", !["administrador"].includes(usuarioAtual.papel)));
 
   // Botões de ação restritos por papel
   document.getElementById("btnNovoFuncionario").classList.toggle("hidden", usuarioAtual.papel !== "administrador");
   document.getElementById("btnNovoProduto").classList.toggle("hidden", !["administrador","supervisor","almoxarife"].includes(usuarioAtual.papel));
-  document.getElementById("btnNovoFornecedor").classList.toggle("hidden", usuarioAtual.papel !== "administrador");
+  document.getElementById("btnNovoFornecedor").classList.toggle("hidden", !["administrador","supervisor","compras"].includes(usuarioAtual.papel));
 
   trocarView("dashboard");
 }
@@ -122,10 +123,10 @@ async function trocarView(view) {
   try {
     if (view === "dashboard") await carregarDashboard();
     if (view === "estoque") await carregarEstoque();
+    if (view === "fornecedores") await carregarFornecedores();
     if (view === "movimentacoes") await carregarMovimentacoes();
     if (view === "alertas") await carregarAlertas();
     if (view === "funcionarios") await carregarFuncionarios();
-    if (view === "fornecedores") await carregarFornecedores();
     if (view === "auditoria") await carregarAuditoria();
   } catch (err) {
     mostrarToast(err.message, "error");
@@ -188,7 +189,7 @@ function renderEstoque(lista) {
     <tr>
       <td><div class="prod-cell">
         <div class="prod-thumb">${icons.box}</div>
-        <div><div class="prod-name">${p.nome}</div><div class="prod-code">${p.codigoInterno} · ${p.categoria}</div></div>
+        <div><div class="prod-name">${p.nome}</div><div class="prod-code">${p.codigoInterno} · ${p.categoria}${p.fornecedor ? ` · ${p.fornecedor}` : ""}</div></div>
       </div></td>
       <td>${p.localizacao ? `<span class="tag-loc">${p.localizacao}</span>` : "—"}</td>
       <td style="font-family:var(--font-mono); color:var(--text-secondary)">${p.lote || "—"}</td>
@@ -204,12 +205,156 @@ function renderEstoque(lista) {
     </tr>`).join("") : '<tr class="empty-row"><td colspan="8">Nenhum produto encontrado.</td></tr>';
 }
 
+function normalizarTexto(texto) {
+  return (texto || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
 function filtrarEstoque(e) {
-  const q = e.target.value.toLowerCase();
+  const q = normalizarTexto(e.target.value);
   renderEstoque(produtosCache.filter(p =>
-    p.nome.toLowerCase().includes(q) || p.codigoInterno.toLowerCase().includes(q) ||
-    (p.lote || "").toLowerCase().includes(q) || (p.fornecedor || "").toLowerCase().includes(q)
+    normalizarTexto(p.nome).includes(q) || normalizarTexto(p.codigoInterno).includes(q) ||
+    normalizarTexto(p.lote).includes(q) || normalizarTexto(p.fornecedor).includes(q)
   ));
+}
+
+// ---------- Fornecedores ----------
+async function carregarFornecedores() {
+  fornecedoresCache = await api("GET", "/fornecedores");
+  renderFornecedores(fornecedoresCache);
+}
+
+function renderFornecedores(lista) {
+  const podeEditar = ["administrador", "supervisor", "compras"].includes(usuarioAtual.papel);
+  const podeExcluir = ["administrador", "supervisor"].includes(usuarioAtual.papel);
+  const iconeEditar = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>';
+  const iconeExcluir = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>';
+
+  document.getElementById("fornecedorTable").innerHTML = lista.length ? lista.map(f => `
+    <tr>
+      <td><a href="#" onclick="abrirPerfilFornecedor(${f.id}); return false;" style="color:var(--text-primary); font-weight:500; text-decoration:none;" onmouseover="this.style.color='var(--accent-text)'" onmouseout="this.style.color='var(--text-primary)'">${f.nome}</a>${f.cnpj ? `<div class="prod-code">${f.cnpj}</div>` : ""}</td>
+      <td>${f.categoria ? `<span class="badge saudavel"><i></i>${f.categoria}</span>` : "—"}</td>
+      <td>${f.contato || "—"}</td>
+      <td style="font-family:var(--font-mono); color:var(--text-secondary)">${f.telefone || "—"}</td>
+      <td class="qty-cell" style="cursor:pointer;" onclick="abrirPerfilFornecedor(${f.id})">${f.totalProdutos} ${f.totalProdutos === 1 ? "produto" : "produtos"}</td>
+      <td><div class="row-actions">
+        ${podeEditar ? `<button class="icon-action" title="Editar fornecedor" onclick="editarFornecedor(${f.id})">${iconeEditar}</button>` : ""}
+        ${podeExcluir ? `<button class="icon-action danger" title="Excluir fornecedor" onclick="excluirFornecedor(${f.id})">${iconeExcluir}</button>` : ""}
+        ${!podeEditar && !podeExcluir ? "—" : ""}
+      </div></td>
+    </tr>`).join("") : '<tr class="empty-row"><td colspan="6">Nenhum fornecedor encontrado.</td></tr>';
+}
+
+function filtrarFornecedores(e) {
+  const q = normalizarTexto(e.target.value);
+  renderFornecedores(fornecedoresCache.filter(f =>
+    normalizarTexto(f.nome).includes(q) ||
+    normalizarTexto(f.cnpj || "").includes(q) ||
+    normalizarTexto(f.contato || "").includes(q) ||
+    normalizarTexto(f.categoria || "").includes(q)
+  ));
+}
+
+async function abrirPerfilFornecedor(id) {
+  try {
+    const f = await api("GET", `/fornecedores/${id}`);
+    const podeEditar = ["administrador", "supervisor", "compras"].includes(usuarioAtual.papel);
+
+    abrirModal(`
+      <div class="modal-title">${f.nome}</div>
+      <div style="font-size:12.5px; color:var(--text-secondary); line-height:1.9; margin-bottom:16px;">
+        ${f.cnpj ? `<div><strong style="color:var(--text-primary)">CNPJ:</strong> ${f.cnpj}</div>` : ""}
+        ${f.contato ? `<div><strong style="color:var(--text-primary)">Contato:</strong> ${f.contato}</div>` : ""}
+        ${f.telefone ? `<div><strong style="color:var(--text-primary)">Telefone:</strong> ${f.telefone}</div>` : ""}
+        ${f.email ? `<div><strong style="color:var(--text-primary)">E-mail:</strong> ${f.email}</div>` : ""}
+        ${f.endereco ? `<div><strong style="color:var(--text-primary)">Endereço:</strong> ${f.endereco}</div>` : ""}
+        ${f.categoria ? `<div><strong style="color:var(--text-primary)">Categoria:</strong> ${f.categoria}</div>` : ""}
+        ${f.observacoes ? `<div><strong style="color:var(--text-primary)">Observações:</strong> ${f.observacoes}</div>` : ""}
+      </div>
+      <div class="panel-title" style="margin-bottom:8px;">Produtos deste fornecedor <span class="muted">${f.produtos.length}</span></div>
+      <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:8px;">
+        ${f.produtos.length ? f.produtos.map(p => `
+          <div style="display:flex; align-items:center; gap:10px; padding:9px 12px; border-bottom:1px solid var(--border);">
+            <div class="prod-thumb" style="width:26px;height:26px;">${icons.box}</div>
+            <div style="flex:1;"><div class="prod-name">${p.nome}</div><div class="prod-code">${p.codigoInterno}</div></div>
+            <span class="badge ${p.quantidade <= 0 ? 'falta' : (p.quantidade < p.estoqueMinimo ? 'critico' : 'saudavel')}"><i></i>${p.quantidade} ${p.unidadeMedida}</span>
+          </div>`).join("") : '<div style="padding:14px; color:var(--text-muted); font-size:12.5px;">Nenhum produto vinculado a este fornecedor ainda.</div>'}
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="fecharModal()">Fechar</button>
+        ${podeEditar ? `<button type="button" class="btn primary" onclick="fecharModal(); editarFornecedor(${f.id})">Editar fornecedor</button>` : ""}
+      </div>
+    `);
+  } catch (err) {
+    mostrarToast(err.message, "error");
+  }
+}
+
+function abrirModalFornecedor(fornecedor) {
+  const editando = !!fornecedor;
+  abrirModal(`
+    <div class="modal-title">${editando ? "Editar fornecedor" : "Cadastrar fornecedor"}</div>
+    <form id="fornForm">
+      <div class="field"><label>Nome</label><input type="text" id="fnNome" value="${fornecedor ? fornecedor.nome : ""}" required></div>
+      <div class="field"><label>CNPJ</label><input type="text" id="fnCnpj" placeholder="00.000.000/0000-00" value="${fornecedor ? (fornecedor.cnpj || "") : ""}"></div>
+      <div class="field"><label>Categoria</label><input type="text" id="fnCategoria" placeholder="Ex: Elétrica" value="${fornecedor ? (fornecedor.categoria || "") : ""}"></div>
+      <div class="field"><label>Nome do contato</label><input type="text" id="fnContato" value="${fornecedor ? (fornecedor.contato || "") : ""}"></div>
+      <div class="field"><label>Telefone</label><input type="text" id="fnTelefone" value="${fornecedor ? (fornecedor.telefone || "") : ""}"></div>
+      <div class="field"><label>E-mail</label><input type="email" id="fnEmail" value="${fornecedor ? (fornecedor.email || "") : ""}"></div>
+      <div class="field"><label>Endereço</label><input type="text" id="fnEndereco" value="${fornecedor ? (fornecedor.endereco || "") : ""}"></div>
+      <div class="field"><label>Observações</label><input type="text" id="fnObs" value="${fornecedor ? (fornecedor.observacoes || "") : ""}"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="fecharModal()">Cancelar</button>
+        <button type="submit" class="btn primary">${editando ? "Salvar alterações" : "Cadastrar"}</button>
+      </div>
+    </form>
+  `);
+  document.getElementById("fornForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const payload = {
+      nome: document.getElementById("fnNome").value,
+      cnpj: document.getElementById("fnCnpj").value,
+      categoria: document.getElementById("fnCategoria").value,
+      contato: document.getElementById("fnContato").value,
+      telefone: document.getElementById("fnTelefone").value,
+      email: document.getElementById("fnEmail").value,
+      endereco: document.getElementById("fnEndereco").value,
+      observacoes: document.getElementById("fnObs").value
+    };
+    try {
+      if (editando) {
+        await api("PUT", `/fornecedores/${fornecedor.id}`, payload);
+        mostrarToast("Fornecedor atualizado.", "success");
+      } else {
+        await api("POST", "/fornecedores", payload);
+        mostrarToast("Fornecedor cadastrado.", "success");
+      }
+      fecharModal();
+      trocarView("fornecedores");
+    } catch (err) {
+      mostrarToast(err.message, "error");
+    }
+  });
+}
+
+async function editarFornecedor(id) {
+  let fornecedor = fornecedoresCache.find(f => f.id === id);
+  if (!fornecedor) {
+    try { fornecedor = await api("GET", `/fornecedores/${id}`); } catch (err) { mostrarToast(err.message, "error"); return; }
+  }
+  abrirModalFornecedor(fornecedor);
+}
+
+async function excluirFornecedor(id) {
+  const fornecedor = fornecedoresCache.find(f => f.id === id);
+  if (!fornecedor) return;
+  if (!confirm(`Excluir o fornecedor "${fornecedor.nome}"? Esta ação não pode ser desfeita.`)) return;
+  try {
+    await api("DELETE", `/fornecedores/${id}`);
+    mostrarToast("Fornecedor excluído.", "success");
+    trocarView("fornecedores");
+  } catch (err) {
+    mostrarToast(err.message, "error");
+  }
 }
 
 // ---------- Movimentações ----------
@@ -261,27 +406,17 @@ async function carregarFuncionarios() {
     </tr>`).join("");
 }
 
-// ---------- Fornecedores ----------
-async function carregarFornecedores() {
-  const lista = await api("GET", "/fornecedores");
-  const ehAdmin = usuarioAtual.papel === "administrador";
-    const iconeEditar = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>';
-  const iconeExcluir = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>';
-
-  document.getElementById("fornTable").innerHTML = lista.map(f => `
-    <tr>
-      <td>${f.nome}</td>
-      <td>${f.cnpj || "—"}</td>
-      <td>${f.telefone || "—"}</td>
-      <td>${f.email || "—"}</td>
-      <td>${f.endereco || "—"}</td>
-      <td><div class="row-actions">
-      ${ehAdmin ? `<button class="icon-action" title="Editar fornecedor" onclick="editarFornecedor(${f.id})">${iconeEditar}</button>` : ""}
-        ${ehAdmin ? `<button class="icon-action danger" title="Excluir fornecedor" onclick="excluirFornecedor(${f.id})">${iconeExcluir}</button>` : ""}
-      </div></td>
-    </tr>`).join("") ; 
-    '<tr class="empty-row"><td colspan="8">Nenhum fornecedor encontrado.</td></tr>';
+async function excluirFuncionario(id) {
+  if (!confirm("Excluir este funcionário? Ele perderá o acesso ao sistema imediatamente. Esta ação não pode ser desfeita.")) return;
+  try {
+    await api("DELETE", `/usuarios/${id}`);
+    mostrarToast("Funcionário removido.", "success");
+    trocarView("funcionarios");
+  } catch (err) {
+    mostrarToast(err.message, "error");
+  }
 }
+
 // ---------- Auditoria ----------
 async function carregarAuditoria() {
   const lista = await api("GET", "/auditoria/logs");
@@ -336,13 +471,33 @@ function abrirModalMovimentacao() {
   });
 }
 
-function abrirModalProduto(produto) {
+async function abrirModalProduto(produto) {
   const editando = !!produto;
+
+  // Garante que a lista de fornecedores está carregada antes de montar o select
+  if (!fornecedoresCache.length) {
+    try { fornecedoresCache = await api("GET", "/fornecedores"); } catch (err) { mostrarToast(err.message, "error"); return; }
+  }
+  if (!fornecedoresCache.length) {
+    mostrarToast("Cadastre ao menos um fornecedor antes de cadastrar produtos.", "error");
+    return;
+  }
+
+  const opcoesFornecedor = fornecedoresCache.map(f =>
+    `<option value="${f.id}" ${produto && produto.fornecedorId === f.id ? "selected" : ""}>${f.nome}</option>`
+  ).join("");
+
   abrirModal(`
     <div class="modal-title">${editando ? "Editar produto" : "Cadastrar produto"}</div>
     <form id="prodForm">
       <div class="field"><label>Nome</label><input type="text" id="pNome" value="${produto ? produto.nome : ""}" required></div>
       <div class="field"><label>Código interno</label><input type="text" id="pCodigo" value="${produto ? produto.codigoInterno : ""}" ${editando ? "disabled" : ""} required></div>
+      <div class="field"><label>Fornecedor</label>
+        <select id="pFornecedor" required>
+          <option value="">Selecione o fornecedor…</option>
+          ${opcoesFornecedor}
+        </select>
+      </div>
       <div class="field"><label>Categoria</label><input type="text" id="pCategoria" placeholder="Ex: Elétrica" value="${produto ? (produto.categoria || "") : ""}"></div>
       <div class="field"><label>Localização física</label><input type="text" id="pLocal" placeholder="Ex: R03-CA-P12" value="${produto ? (produto.localizacao || "") : ""}"></div>
       <div class="field"><label>Quantidade${editando ? " atual" : " inicial"}</label><input type="number" id="pQtd" min="0" value="${produto ? produto.quantidade : 0}"></div>
@@ -356,8 +511,14 @@ function abrirModalProduto(produto) {
   `);
   document.getElementById("prodForm").addEventListener("submit", async (e) => {
     e.preventDefault();
+    const fornecedorId = document.getElementById("pFornecedor").value;
+    if (!fornecedorId) {
+      mostrarToast("Selecione o fornecedor do produto.", "error");
+      return;
+    }
     const payload = {
       nome: document.getElementById("pNome").value,
+      fornecedorId: parseInt(fornecedorId, 10),
       categoria: document.getElementById("pCategoria").value,
       localizacao: document.getElementById("pLocal").value,
       quantidade: parseFloat(document.getElementById("pQtd").value || 0),
@@ -438,41 +599,6 @@ function abrirModalFuncionario() {
       fecharModal();
       mostrarToast("Funcionário cadastrado. Repasse a senha provisória a ele com segurança.", "success");
       trocarView("funcionarios");
-    } catch (err) {
-      mostrarToast(err.message, "error");
-    }
-  });
-}
-
-function abrirModalFornecedor() {
-  abrirModal(`
-    <div class="modal-title">Novo fornecedor</div>
-    <form id="fornForm">
-      <div class="field"><label>Nome</label><input type="text" id="foNome" required></div>
-      <div class="field"><label>CNPJ</label><input type="text" id="foCNPJ"></div>
-      <div class="field"><label>Telefone</label><input type="text" id="foTel"></div>
-      <div class="field"><label>Email</label><input type="email" id="foEmail"></div>
-      <div class="field"><label>Endereço</label><input type="text" id="foEnd"></div>
-      <div class="modal-actions">
-        <button type="button" class="btn" onclick="fecharModal()">Cancelar</button>
-        <button type="submit" class="btn primary">Cadastrar fornecedor</button>
-      </div>
-    </form>
-  `);
-  document.getElementById("fornForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    
-    try {
-      await api("POST", "/fornecedores", {
-        nome: document.getElementById("foNome").value,
-        cnpj: document.getElementById("foCNPJ").value,
-        telefone: document.getElementById("foTel").value,
-        email: document.getElementById("foEmail").value,
-        endereco: document.getElementById("foEnd").value
-      });
-      fecharModal();
-      mostrarToast("Fornecedor cadastrado.", "success");
-      trocarView("fornecedores");
     } catch (err) {
       mostrarToast(err.message, "error");
     }

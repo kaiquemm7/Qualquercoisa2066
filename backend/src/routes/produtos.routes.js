@@ -8,6 +8,10 @@ const { registrarLog } = require("../utils/audit");
 const router = express.Router();
 router.use(authenticate);
 
+function normalizar(texto) {
+  return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
 function calcularStatus(p) {
   const hoje = new Date();
   if (p.validade) {
@@ -26,24 +30,25 @@ function calcularStatus(p) {
 
 // ---------- Listar (com busca/filtros) ----------
 router.get("/", (req, res) => {
-  const { busca, categoria, setor, status } = req.query;
+  const { busca, categoria, setor, status, fornecedorId } = req.query;
   const data = db.load();
   let produtos = data.produtos.map(p => ({ ...p, status: calcularStatus(p) }));
 
   if (busca) {
-    const q = busca.toLowerCase();
+    const q = normalizar(busca);
     produtos = produtos.filter(p =>
-      p.nome.toLowerCase().includes(q) ||
-      p.codigoInterno.toLowerCase().includes(q) ||
-      (p.codigoBarras || "").toLowerCase().includes(q) ||
-      (p.lote || "").toLowerCase().includes(q) ||
-      (p.fabricante || "").toLowerCase().includes(q) ||
-      (p.fornecedor || "").toLowerCase().includes(q)
+      normalizar(p.nome).includes(q) ||
+      normalizar(p.codigoInterno).includes(q) ||
+      normalizar(p.codigoBarras || "").includes(q) ||
+      normalizar(p.lote || "").includes(q) ||
+      normalizar(p.fabricante || "").includes(q) ||
+      normalizar(p.fornecedor || "").includes(q)
     );
   }
   if (categoria) produtos = produtos.filter(p => p.categoria === categoria);
   if (setor) produtos = produtos.filter(p => p.setor === setor);
   if (status) produtos = produtos.filter(p => p.status === status);
+  if (fornecedorId) produtos = produtos.filter(p => p.fornecedorId === parseInt(fornecedorId, 10));
 
   res.json(produtos);
 });
@@ -61,10 +66,16 @@ router.post("/", authorize("administrador", "supervisor", "almoxarife"), (req, r
   if (!body.nome || !body.codigoInterno) {
     return res.status(400).json({ erro: "Nome e código interno são obrigatórios." });
   }
+  if (!body.fornecedorId) {
+    return res.status(400).json({ erro: "Selecione o fornecedor do produto." });
+  }
 
   const data = db.load();
   const existeCodigo = data.produtos.some(p => p.codigoInterno === body.codigoInterno);
   if (existeCodigo) return res.status(409).json({ erro: "Já existe um produto com este código interno." });
+
+  const fornecedor = data.fornecedores.find(f => f.id === parseInt(body.fornecedorId, 10));
+  if (!fornecedor) return res.status(400).json({ erro: "Fornecedor não encontrado." });
 
   data.contadores.produto += 1;
   const novo = {
@@ -75,7 +86,8 @@ router.post("/", authorize("administrador", "supervisor", "almoxarife"), (req, r
     nome: body.nome,
     categoria: body.categoria || "geral",
     fabricante: body.fabricante || null,
-    fornecedor: body.fornecedor || null,
+    fornecedorId: fornecedor.id,
+    fornecedor: fornecedor.nome,
     unidadeMedida: body.unidadeMedida || "un",
     localizacao: body.localizacao || null, // ex: R03-CA-P12
     lote: body.lote || null,
@@ -104,7 +116,15 @@ router.put("/:id", authorize("administrador", "supervisor", "almoxarife"), (req,
   const idx = data.produtos.findIndex(p => p.id === parseInt(req.params.id, 10));
   if (idx === -1) return res.status(404).json({ erro: "Produto não encontrado." });
 
-  data.produtos[idx] = { ...data.produtos[idx], ...req.body, id: data.produtos[idx].id };
+  const body = { ...req.body };
+  if (body.fornecedorId) {
+    const fornecedor = data.fornecedores.find(f => f.id === parseInt(body.fornecedorId, 10));
+    if (!fornecedor) return res.status(400).json({ erro: "Fornecedor não encontrado." });
+    body.fornecedorId = fornecedor.id;
+    body.fornecedor = fornecedor.nome;
+  }
+
+  data.produtos[idx] = { ...data.produtos[idx], ...body, id: data.produtos[idx].id };
   db.save(data);
   registrarLog({ usuarioId: req.usuario.id, usuarioNome: req.usuario.nome, acao: "ATUALIZAR_PRODUTO", entidade: "produto", entidadeId: data.produtos[idx].id });
   res.json(data.produtos[idx]);
