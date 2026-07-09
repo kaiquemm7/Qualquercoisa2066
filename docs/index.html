@@ -65,6 +65,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
         Funcionários
       </div>
+      <div class="nav-item" data-view="fornecedores">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+        Fornecedores
+      </div>
       <div class="nav-item" data-view="auditoria">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2h9l5 5v13a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z"/><path d="M14 2v5h5M9 13h6M9 17h6"/></svg>
         Auditoria
@@ -174,7 +178,16 @@
         <div class="table-scroll"><table><thead><tr><th>Nome</th><th>Usuário</th><th>Papel</th><th>Setor</th><th>2FA</th></tr></thead><tbody id="funcTable"></tbody></table></div>
       </div>
     </div>
-
+    <!-- Fornecedor -->
+    <div class="view" id="view-fornecedores">
+      <div class="page-title-row">
+        <div><div class="page-title">Fornecedores</div><div class="page-sub">cadastro e informações</div></div>
+        <button class="btn primary" id="btnNovoFornecedor">Novo fornecedor</button>
+      </div>
+      <div class="panel" style="padding:0;">
+        <div class="table-scroll"><table><thead><tr><th>Nome</th><th>Endereço</th><th>Telefone</th><th>Email</th><th>CNPJ</th><th>Endereço</th></tr></thead><tbody id="fornTable"></tbody></table></div>
+      </div>
+    </div>
     <!-- AUDITORIA -->
     <div class="view" id="view-auditoria">
       <div class="page-title-row"><div><div class="page-title">Auditoria</div><div class="page-sub">log completo de ações no sistema</div></div></div>
@@ -184,6 +197,8 @@
     </div>
   </div>
 </div>
+
+
 
 <script src="js/config.js"></script>
 <script src="js/api.js"></script>

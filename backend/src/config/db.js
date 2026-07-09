@@ -12,6 +12,7 @@ const DB_FILE = path.join(__dirname, "..", "data", "db.json");
 
 function defaultData() {
   return {
+    fornecedores: [],
     usuarios: [],
     produtos: [],
     movimentacoes: [],

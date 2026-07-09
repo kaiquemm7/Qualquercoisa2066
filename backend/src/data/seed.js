@@ -15,6 +15,15 @@ const usuarios = [
   { id: 6, nome: "Roberto Lima", usuario: "roberto.lima", senhaHash: hash("Auditor@123"), papel: "auditor", setor: "auditoria", cargo: "Auditor interno", twoFactorAtivo: false, tentativasFalhas: 0, bloqueadoAte: null, criadoEm: new Date().toISOString() }
 ];
 
+const fornecedores = [
+  { id: 1, nome: "Rolamentos Brasil Ltda", cnpj: "12.345.678/0001-90", telefone: "(11) 98765-4321", email: "contato@rolamentosbrasil.com.br", endereco: "Av. Paulista, 1000 - São Paulo/SP" },
+  { id: 2, nome: "Elétrica Industrial SA", cnpj: "98.765.432/0001-87", telefone: "(21) 98765-4321", email: "contato@eletricaindustrial.com.br", endereco: "Rua das Flores, 123 - Rio de Janeiro/RJ" },
+  { id: 3, nome: "Segurança Total EPIs", cnpj: "56.789.012/0001-34", telefone: "(31) 98765-4321", email: "contato@segurancatotal.com.br", endereco: "Av. Getúlio Vargas, 456 - Belo Horizonte/MG" },
+  { id: 4, nome: "Hidráulica Sul", cnpj: "34.567.890/0001-12", telefone: "(51) 98765-4321", email: "contato@hidraulicasul.com.br", endereco: "Rua do Comércio, 789 - Porto Alegre/RS" },
+  { id: 5, nome: "Distribuidora Óleo Certo", cnpj: "78.901.234/0001-56", telefone: "(41) 98765-4321", email: "contato@oleocerto.com.br", endereco: "Av. das Nações Unidas, 100 - Curitiba/PR" },
+  { id: 6, nome: "Ferramentaria Central", cnpj: "12.345.678/0001-90", telefone: "(61) 98765-4321", email: "contato@ferramentariacentral.com.br", endereco: "Rua das Flores, 123 - Brasília/DF" }
+];
+
 const hoje = new Date();
 const emDias = (n) => new Date(hoje.getTime() + n * 86400000).toISOString().slice(0, 10);
 
@@ -38,6 +47,7 @@ const movimentacoes = [
 ];
 
 const dbData = {
+  fornecedores,
   usuarios,
   produtos,
   movimentacoes,

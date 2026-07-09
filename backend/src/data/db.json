@@ -1,4 +1,24 @@
 {
+  "fornecedores": [
+    {
+      "id": 1,
+      "nome": "Rolamentos Brasil Ltda",
+      "cnpj": "12.345.678/0001-90",
+      "contato": "João Silva",
+      "telefone": "(11) 98765-4321",
+      "email": "contato@rolamentosbrasil.com.br",
+      "endereco": "Av. Paulista, 1000 - São Paulo/SP"
+    },
+    {
+      "id": 2,
+      "nome": "Elétrica Industrial SA",
+      "cnpj": "98.765.432/0001-87",
+      "contato": "Maria Oliveira",
+      "telefone": "(21) 98765-4321",
+      "email": "contato@eletricaindustrial.com.br",
+      "endereco": "Rua das Flores, 123 - Rio de Janeiro/RJ"
+    }
+  ],
   "usuarios": [
     {
       "id": 1,

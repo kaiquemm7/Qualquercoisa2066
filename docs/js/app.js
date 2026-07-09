@@ -24,6 +24,7 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnNovaMovimentacao").addEventListener("click", abrirModalMovimentacao);
   document.getElementById("btnNovoProduto").addEventListener("click", () => abrirModalProduto());
   document.getElementById("btnNovoFuncionario").addEventListener("click", abrirModalFuncionario);
+  document.getElementById("btnNovoFornecedor").addEventListener("click", () => abrirModalFornecedor());
   document.getElementById("stockSearch").addEventListener("input", filtrarEstoque);
 
   if (getToken()) {
@@ -88,10 +89,12 @@ function mostrarApp() {
   const podeGerenciarGente = ["administrador", "supervisor"].includes(usuarioAtual.papel);
   document.querySelectorAll('[data-view="funcionarios"]').forEach(el => el.classList.toggle("hidden", !podeGerenciarGente));
   document.querySelectorAll('[data-view="auditoria"]').forEach(el => el.classList.toggle("hidden", !["administrador","auditor"].includes(usuarioAtual.papel)));
+  document.querySelectorAll('[data-view="fornecedores"]').forEach(el => el.classList.toggle("hidden", !["administrador"].includes(usuarioAtual.papel)));
 
   // Botões de ação restritos por papel
   document.getElementById("btnNovoFuncionario").classList.toggle("hidden", usuarioAtual.papel !== "administrador");
   document.getElementById("btnNovoProduto").classList.toggle("hidden", !["administrador","supervisor","almoxarife"].includes(usuarioAtual.papel));
+  document.getElementById("btnNovoFornecedor").classList.toggle("hidden", usuarioAtual.papel !== "administrador");
 
   trocarView("dashboard");
 }
@@ -246,6 +249,19 @@ async function carregarFuncionarios() {
       <td><span class="badge saudavel"><i></i>${u.papel}</span></td>
       <td>${u.setor || "—"}</td>
       <td>${u.twoFactorAtivo ? "Ativo" : "Inativo"}</td>
+    </tr>`).join("");
+}
+
+// ---------- Fornecedores ----------
+async function carregarFornecedores() {
+  const lista = await api("GET", "/fornecedores");
+  document.getElementById("fornTable").innerHTML = lista.map(f => `
+    <tr>
+      <td>${f.nome}</td>
+      <td>${f.cnpj || "—"}</td>
+      <td>${f.telefone || "—"}</td>
+      <td>${f.email || "—"}</td>
+      <td>${f.endereco || "—"}</td>
     </tr>`).join("");
 }
 
@@ -405,6 +421,40 @@ function abrirModalFuncionario() {
       fecharModal();
       mostrarToast("Funcionário cadastrado. Repasse a senha provisória a ele com segurança.", "success");
       trocarView("funcionarios");
+    } catch (err) {
+      mostrarToast(err.message, "error");
+    }
+  });
+}
+
+function abrirModalFornecedor() {
+  abrirModal(`
+    <div class="modal-title">Novo fornecedor</div>
+    <form id="fornForm">
+      <div class="field"><label>Nome</label><input type="text" id="foNome" required></div>
+      <div class="field"><label>CNPJ</label><input type="text" id="foCNPJ"></div>
+      <div class="field"><label>Telefone</label><input type="text" id="foTel"></div>
+      <div class="field"><label>Email</label><input type="email" id="foEmail"></div>
+      <div class="field"><label>Endereço</label><input type="text" id="foEnd"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="fecharModal()">Cancelar</button>
+        <button type="submit" class="btn primary">Cadastrar fornecedor</button>
+      </div>
+    </form>
+  `);
+  document.getElementById("fornForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api("POST", "/fornecedores", {
+        nome: document.getElementById("foNome").value,
+        cnpj: document.getElementById("foCNPJ").value,
+        telefone: document.getElementById("foTel").value,
+        email: document.getElementById("foEmail").value,
+        endereco: document.getElementById("foEnd").value
+      });
+      fecharModal();
+      mostrarToast("Fornecedor cadastrado.", "success");
+      trocarView("fornecedores");
     } catch (err) {
       mostrarToast(err.message, "error");
     }
