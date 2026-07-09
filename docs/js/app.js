@@ -24,7 +24,7 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnNovaMovimentacao").addEventListener("click", abrirModalMovimentacao);
   document.getElementById("btnNovoProduto").addEventListener("click", () => abrirModalProduto());
   document.getElementById("btnNovoFuncionario").addEventListener("click", abrirModalFuncionario);
-  document.getElementById("btnNovoFornecedor").addEventListener("click", () => abrirModalFornecedor());
+  document.getElementById("btnNovoFornecedor").addEventListener("click", abrirModalFornecedor);
   document.getElementById("stockSearch").addEventListener("input", filtrarEstoque);
 
   if (getToken()) {
@@ -125,6 +125,7 @@ async function trocarView(view) {
     if (view === "movimentacoes") await carregarMovimentacoes();
     if (view === "alertas") await carregarAlertas();
     if (view === "funcionarios") await carregarFuncionarios();
+    if (view === "fornecedores") await carregarFornecedores();
     if (view === "auditoria") await carregarAuditoria();
   } catch (err) {
     mostrarToast(err.message, "error");
@@ -263,6 +264,9 @@ async function carregarFuncionarios() {
 // ---------- Fornecedores ----------
 async function carregarFornecedores() {
   const lista = await api("GET", "/fornecedores");
+  const ehAdmin = usuarioAtual.papel === "administrador";
+  const iconeExcluir = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>';
+
   document.getElementById("fornTable").innerHTML = lista.map(f => `
     <tr>
       <td>${f.nome}</td>
