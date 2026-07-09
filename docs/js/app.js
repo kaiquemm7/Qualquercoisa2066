@@ -19,6 +19,8 @@ window.addEventListener("DOMContentLoaded", () => {
     item.addEventListener("click", () => trocarView(item.dataset.view));
   });
   document.getElementById("logoutBtn").addEventListener("click", logout);
+  document.getElementById("menuToggle").addEventListener("click", toggleSidebar);
+  document.getElementById("sidebarOverlay").addEventListener("click", fecharSidebar);
   document.getElementById("btnNovaMovimentacao").addEventListener("click", abrirModalMovimentacao);
   document.getElementById("btnNovoProduto").addEventListener("click", () => abrirModalProduto());
   document.getElementById("btnNovoFuncionario").addEventListener("click", abrirModalFuncionario);
@@ -98,10 +100,21 @@ function iniciais(nome) {
   return nome.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase();
 }
 
+// ---------- Menu mobile ----------
+function toggleSidebar() {
+  document.getElementById("sidebar").classList.toggle("open");
+  document.getElementById("sidebarOverlay").classList.toggle("open");
+}
+function fecharSidebar() {
+  document.getElementById("sidebar").classList.remove("open");
+  document.getElementById("sidebarOverlay").classList.remove("open");
+}
+
 // ---------- Navegação ----------
 async function trocarView(view) {
   document.querySelectorAll(".nav-item").forEach(i => i.classList.toggle("active", i.dataset.view === view));
   document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + view));
+  fecharSidebar();
 
   try {
     if (view === "dashboard") await carregarDashboard();

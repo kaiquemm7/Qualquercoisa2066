@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>mODELO · Sistema de Almoxarifado</title>
+<title>MODELO · Sistema de Almoxarifado</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
@@ -37,7 +37,8 @@
 
 <!-- ---------- APP ---------- -->
 <div id="appScreen" class="hidden">
-  <div class="sidebar">
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+  <div class="sidebar" id="sidebar">
     <div class="brand">
       <img src="img/logo.png" alt="Modelo Equipamentos Avícolas" class="brand-mark-img">
       <div><div class="brand-name">MODELO</div><div class="brand-sub">almoxarifado</div></div>
@@ -84,6 +85,9 @@
 
   <div class="main">
     <div class="topbar">
+      <button class="menu-toggle" id="menuToggle" title="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
       <div class="search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
         <input placeholder="Buscar produtos na tela de Estoque…" disabled>
@@ -123,7 +127,7 @@
       <div class="grid-2">
         <div class="panel">
           <div class="panel-title">Movimentações recentes</div>
-          <table><thead><tr><th>Data/Hora</th><th>Produto</th><th>Tipo</th><th>Qtd.</th><th>Usuário</th></tr></thead><tbody id="recentMoves"></tbody></table>
+          <div class="table-scroll"><table><thead><tr><th>Data/Hora</th><th>Produto</th><th>Tipo</th><th>Qtd.</th><th>Usuário</th></tr></thead><tbody id="recentMoves"></tbody></table></div>
         </div>
         <div class="panel">
           <div class="panel-title">Produtos mais utilizados <span class="muted">90 dias</span></div>
@@ -140,7 +144,7 @@
       </div>
       <div class="toolbar"><input id="stockSearch" placeholder="Filtrar por nome, código, lote ou fornecedor…"></div>
       <div class="panel" style="padding:0;">
-        <table><thead><tr><th>Produto</th><th>Localização</th><th>Lote</th><th>Qtd.</th><th>Mínimo</th><th>Validade</th><th>Status</th><th>Ações</th></tr></thead><tbody id="stockTable"></tbody></table>
+        <div class="table-scroll"><table><thead><tr><th>Produto</th><th>Localização</th><th>Lote</th><th>Qtd.</th><th>Mínimo</th><th>Validade</th><th>Status</th><th>Ações</th></tr></thead><tbody id="stockTable"></tbody></table></div>
       </div>
     </div>
 
@@ -150,7 +154,7 @@
         <div><div class="page-title">Movimentações</div><div class="page-sub">registro completo</div></div>
       </div>
       <div class="panel" style="padding:0;">
-        <table><thead><tr><th>Data/Hora</th><th>Produto</th><th>Tipo</th><th>Qtd.</th><th>Usuário</th><th>Motivo</th><th>Doc.</th></tr></thead><tbody id="movesTable"></tbody></table>
+        <div class="table-scroll"><table><thead><tr><th>Data/Hora</th><th>Produto</th><th>Tipo</th><th>Qtd.</th><th>Usuário</th><th>Motivo</th><th>Doc.</th></tr></thead><tbody id="movesTable"></tbody></table></div>
       </div>
     </div>
 
@@ -167,7 +171,7 @@
         <button class="btn primary" id="btnNovoFuncionario">Novo funcionário</button>
       </div>
       <div class="panel" style="padding:0;">
-        <table><thead><tr><th>Nome</th><th>Usuário</th><th>Papel</th><th>Setor</th><th>2FA</th></tr></thead><tbody id="funcTable"></tbody></table>
+        <div class="table-scroll"><table><thead><tr><th>Nome</th><th>Usuário</th><th>Papel</th><th>Setor</th><th>2FA</th></tr></thead><tbody id="funcTable"></tbody></table></div>
       </div>
     </div>
 
@@ -175,7 +179,7 @@
     <div class="view" id="view-auditoria">
       <div class="page-title-row"><div><div class="page-title">Auditoria</div><div class="page-sub">log completo de ações no sistema</div></div></div>
       <div class="panel" style="padding:0;">
-        <table><thead><tr><th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>Detalhes</th></tr></thead><tbody id="auditTable"></tbody></table>
+        <div class="table-scroll"><table><thead><tr><th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>Detalhes</th></tr></thead><tbody id="auditTable"></tbody></table></div>
       </div>
     </div>
   </div>
