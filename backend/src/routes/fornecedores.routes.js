@@ -59,4 +59,6 @@ router.delete("/:id", authorize("administrador"), (req, res) => {
   res.json(sanitizar(fornecedorRemovido));
 });
 
+// 
+
 module.exports = router;
