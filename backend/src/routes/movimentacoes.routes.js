@@ -26,7 +26,7 @@ router.get("/", (req, res) => {
 
 // ---------- Registrar movimentação ----------
 router.post("/", (req, res) => {
-  const { produtoId, tipo, quantidade, motivo, observacoes, documento, setorDestino } = req.body;
+  const { produtoId, tipo, quantidade, motivo, observacoes, documento, setorDestino, retiradoPor } = req.body;
 
   if (!produtoId || !tipo || !quantidade) {
     return res.status(400).json({ erro: "produtoId, tipo e quantidade são obrigatórios." });
@@ -68,6 +68,7 @@ router.post("/", (req, res) => {
     tipo,
     quantidade: qtd,
     setorDestino: setorDestino || null,
+    retiradoPor: retiradoPor || null,
     motivo: motivo || null,
     observacoes: observacoes || null,
     documento: documento || null,

@@ -184,6 +184,7 @@ function renderEstoque(lista) {
   const podeExcluir = ["administrador", "supervisor"].includes(usuarioAtual.papel);
   const iconeEditar = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>';
   const iconeExcluir = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>';
+  const iconeBaixa = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>';
 
   document.getElementById("stockTable").innerHTML = lista.length ? lista.map(p => `
     <tr>
@@ -198,9 +199,9 @@ function renderEstoque(lista) {
       <td style="color:var(--text-secondary)">${p.validade || "—"}</td>
       <td><span class="badge ${p.status}"><i></i>${statusLabel[p.status] || p.status}</span></td>
       <td><div class="row-actions">
+        <button class="icon-action baixa" title="Dar baixa (registrar retirada)" ${p.quantidade <= 0 ? "disabled" : ""} onclick="abrirModalBaixa(${p.id})">${iconeBaixa}</button>
         ${podeEditar ? `<button class="icon-action" title="Editar produto" onclick="editarProduto(${p.id})">${iconeEditar}</button>` : ""}
         ${podeExcluir ? `<button class="icon-action danger" title="Excluir produto" onclick="excluirProduto(${p.id})">${iconeExcluir}</button>` : ""}
-        ${!podeEditar && !podeExcluir ? "—" : ""}
       </div></td>
     </tr>`).join("") : '<tr class="empty-row"><td colspan="8">Nenhum produto encontrado.</td></tr>';
 }
@@ -365,9 +366,10 @@ async function carregarMovimentacoes() {
       <td style="font-family:var(--font-mono); color:var(--text-secondary)">${formatarData(m.dataHora)}</td>
       <td>${m.produtoNome}</td><td>${badgeTipo(m.tipo)}</td>
       <td class="qty-cell">${sinalQtd(m.tipo)}${m.quantidade}</td><td>${m.usuarioNome}</td>
+      <td>${m.retiradoPor || "—"}</td>
       <td>${m.motivo || "—"}</td>
       <td style="font-family:var(--font-mono); color:var(--text-muted)">${m.documento || "—"}</td>
-    </tr>`).join("") : '<tr class="empty-row"><td colspan="7">Nenhuma movimentação registrada.</td></tr>';
+    </tr>`).join("") : '<tr class="empty-row"><td colspan="8">Nenhuma movimentação registrada.</td></tr>';
 }
 
 // ---------- Alertas ----------
@@ -430,6 +432,67 @@ async function carregarAuditoria() {
 }
 
 // ---------- Modais ----------
+function abrirModalBaixa(produtoId) {
+  const produto = produtosCache.find(p => p.id === produtoId);
+  if (!produto) { mostrarToast("Produto não encontrado.", "error"); return; }
+  if (produto.quantidade <= 0) { mostrarToast("Este produto está com estoque zerado.", "error"); return; }
+
+  abrirModal(`
+    <div class="modal-title">Dar baixa — ${produto.nome}</div>
+    <p style="font-size:12.5px; color:var(--text-secondary); margin:-8px 0 16px;">
+      Disponível em estoque: <strong style="color:var(--text-primary)">${produto.quantidade} ${produto.unidadeMedida}</strong>
+      ${produto.localizacao ? ` · <span class="tag-loc">${produto.localizacao}</span>` : ""}
+    </p>
+    <form id="baixaForm">
+      <div class="field"><label>Quantidade retirada</label><input type="number" id="bxQtd" min="0.01" max="${produto.quantidade}" step="0.01" value="1" required autofocus></div>
+      <div class="field"><label>Retirado por</label><input type="text" id="bxRetiradoPor" placeholder="Nome de quem está levando"></div>
+      <div class="field"><label>Setor de destino</label>
+        <select id="bxSetor">
+          <option value="">Não informado</option>
+          <option value="producao">Produção</option>
+          <option value="manutencao">Manutenção</option>
+          <option value="escritorio">Escritório</option>
+          <option value="ferramentaria">Ferramentaria</option>
+          <option value="almoxarifado_central">Almoxarifado central</option>
+        </select>
+      </div>
+      <div class="field"><label>Motivo (opcional)</label><input type="text" id="bxMotivo" placeholder="Ex: Uso na linha 2"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="fecharModal()">Cancelar</button>
+        <button type="submit" class="btn primary">Confirmar baixa</button>
+      </div>
+    </form>
+  `);
+
+  document.getElementById("baixaForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const quantidade = parseFloat(document.getElementById("bxQtd").value);
+    if (!quantidade || quantidade <= 0) {
+      mostrarToast("Informe uma quantidade válida.", "error");
+      return;
+    }
+    if (quantidade > produto.quantidade) {
+      mostrarToast(`Quantidade maior que o disponível (${produto.quantidade} ${produto.unidadeMedida}).`, "error");
+      return;
+    }
+    try {
+      await api("POST", "/movimentacoes", {
+        produtoId: produto.id,
+        tipo: "saida",
+        quantidade,
+        retiradoPor: document.getElementById("bxRetiradoPor").value,
+        setorDestino: document.getElementById("bxSetor").value,
+        motivo: document.getElementById("bxMotivo").value || "Retirada de estoque"
+      });
+      fecharModal();
+      mostrarToast("Baixa registrada com sucesso.", "success");
+      trocarView("estoque");
+    } catch (err) {
+      mostrarToast(err.message, "error");
+    }
+  });
+}
+
 function abrirModalMovimentacao() {
   const opcoes = produtosCache.map(p => `<option value="${p.id}">${p.nome} (${p.quantidade} ${p.unidadeMedida} em estoque)</option>`).join("");
   abrirModal(`

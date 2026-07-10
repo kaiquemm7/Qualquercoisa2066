@@ -136,6 +136,10 @@ tbody tr:hover{background:var(--bg-panel-2);}
 .icon-action svg{width:14px; height:14px;}
 .icon-action:hover{background:var(--bg-panel-3); color:var(--text-primary);}
 .icon-action.danger:hover{background:var(--danger-dim); color:var(--danger-text); border-color:var(--danger);}
+.icon-action.baixa{color:var(--accent-text); border-color:var(--accent-dim);}
+.icon-action.baixa:hover{background:var(--accent-dim); color:var(--accent-text); border-color:var(--accent);}
+.icon-action:disabled{opacity:.35; cursor:not-allowed;}
+.icon-action:disabled:hover{background:var(--bg-panel-2); color:var(--text-secondary); border-color:var(--border);}
 
 .alert-card{display:flex; gap:12px; padding:14px; background:var(--bg-panel); border:1px solid var(--border); border-left:3px solid var(--border); border-radius:var(--radius); margin-bottom:10px;}
 .alert-card.critico{border-left-color:var(--danger);}
