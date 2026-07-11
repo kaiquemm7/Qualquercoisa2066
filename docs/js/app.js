@@ -8,10 +8,12 @@ const icons = {
 };
 const statusLabel = { saudavel:"Saudável", critico:"Crítico", falta:"Em falta", vencido:"Vencido", vence_em_breve:"Vence em breve", excesso:"Excesso" };
 const tipoLabel = { entrada:"Entrada", saida:"Saída", transferencia:"Transferência", ajuste:"Ajuste", devolucao:"Devolução", emprestimo:"Empréstimo", inventario:"Inventário" };
+const setorLabel = { almoxarifado_central:"Almoxarifado central", producao:"Produção", manutencao:"Manutenção", escritorio:"Escritório", ferramentaria:"Ferramentaria" };
 
 let usuarioAtual = null;
 let produtosCache = [];
 let fornecedoresCache = [];
+let notasFiscaisCache = [];
 
 // ---------- Boot ----------
 window.addEventListener("DOMContentLoaded", () => {
@@ -28,6 +30,11 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("stockSearch").addEventListener("input", filtrarEstoque);
   document.getElementById("btnNovoFornecedor").addEventListener("click", () => abrirModalFornecedor());
   document.getElementById("fornecedorSearch").addEventListener("input", filtrarFornecedores);
+  document.getElementById("stockSetorFiltro").addEventListener("change", filtrarEstoque);
+  document.getElementById("btnRegistrarEntrada").addEventListener("click", () => abrirModalEntrada());
+  document.getElementById("xmlFileInput").addEventListener("change", tratarUploadXml);
+  document.getElementById("btnLancarNotaManual").addEventListener("click", abrirModalNotaManual);
+  document.getElementById("notaSearch").addEventListener("input", filtrarNotas);
 
   if (getToken()) {
     carregarSessao();
@@ -97,6 +104,11 @@ function mostrarApp() {
   document.getElementById("btnNovoProduto").classList.toggle("hidden", !["administrador","supervisor","almoxarife"].includes(usuarioAtual.papel));
   document.getElementById("btnNovoFornecedor").classList.toggle("hidden", !["administrador","supervisor","compras"].includes(usuarioAtual.papel));
 
+  const podeLancarNota = ["administrador","supervisor","almoxarife","compras"].includes(usuarioAtual.papel);
+  document.getElementById("btnLancarNotaManual").classList.toggle("hidden", !podeLancarNota);
+  document.querySelector('label[for="xmlFileInput"]').classList.toggle("hidden", !podeLancarNota);
+  document.getElementById("btnRegistrarEntrada").classList.toggle("hidden", !podeLancarNota);
+
   trocarView("dashboard");
 }
 
@@ -125,6 +137,7 @@ async function trocarView(view) {
     if (view === "estoque") await carregarEstoque();
     if (view === "fornecedores") await carregarFornecedores();
     if (view === "movimentacoes") await carregarMovimentacoes();
+    if (view === "notasFiscais") await carregarNotasFiscais();
     if (view === "alertas") await carregarAlertas();
     if (view === "funcionarios") await carregarFuncionarios();
     if (view === "auditoria") await carregarAuditoria();
@@ -192,6 +205,7 @@ function renderEstoque(lista) {
         <div class="prod-thumb">${icons.box}</div>
         <div><div class="prod-name">${p.nome}</div><div class="prod-code">${p.codigoInterno} · ${p.categoria}${p.fornecedor ? ` · ${p.fornecedor}` : ""}</div></div>
       </div></td>
+      <td>${setorLabel[p.setor] || p.setor || "—"}</td>
       <td>${p.localizacao ? `<span class="tag-loc">${p.localizacao}</span>` : "—"}</td>
       <td style="font-family:var(--font-mono); color:var(--text-secondary)">${p.lote || "—"}</td>
       <td class="qty-cell">${p.quantidade} ${p.unidadeMedida}</td>
@@ -203,19 +217,22 @@ function renderEstoque(lista) {
         ${podeEditar ? `<button class="icon-action" title="Editar produto" onclick="editarProduto(${p.id})">${iconeEditar}</button>` : ""}
         ${podeExcluir ? `<button class="icon-action danger" title="Excluir produto" onclick="excluirProduto(${p.id})">${iconeExcluir}</button>` : ""}
       </div></td>
-    </tr>`).join("") : '<tr class="empty-row"><td colspan="8">Nenhum produto encontrado.</td></tr>';
+    </tr>`).join("") : '<tr class="empty-row"><td colspan="9">Nenhum produto encontrado.</td></tr>';
 }
 
 function normalizarTexto(texto) {
   return (texto || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
 
-function filtrarEstoque(e) {
-  const q = normalizarTexto(e.target.value);
-  renderEstoque(produtosCache.filter(p =>
-    normalizarTexto(p.nome).includes(q) || normalizarTexto(p.codigoInterno).includes(q) ||
-    normalizarTexto(p.lote).includes(q) || normalizarTexto(p.fornecedor).includes(q)
-  ));
+function filtrarEstoque() {
+  const q = normalizarTexto(document.getElementById("stockSearch").value);
+  const setor = document.getElementById("stockSetorFiltro").value;
+  renderEstoque(produtosCache.filter(p => {
+    const bateBusca = !q || normalizarTexto(p.nome).includes(q) || normalizarTexto(p.codigoInterno).includes(q) ||
+      normalizarTexto(p.lote).includes(q) || normalizarTexto(p.fornecedor).includes(q);
+    const bateSetor = !setor || p.setor === setor;
+    return bateBusca && bateSetor;
+  }));
 }
 
 // ---------- Fornecedores ----------
@@ -493,6 +510,307 @@ function abrirModalBaixa(produtoId) {
   });
 }
 
+async function abrirModalEntrada() {
+  if (!produtosCache.length) {
+    try { produtosCache = await api("GET", "/produtos"); } catch (err) { mostrarToast(err.message, "error"); return; }
+  }
+  if (!produtosCache.length) {
+    mostrarToast("Cadastre ao menos um produto antes de registrar uma entrada.", "error");
+    return;
+  }
+
+  const opcoesProduto = produtosCache.map(p =>
+    `<option value="${p.id}">${p.nome} (${p.quantidade} ${p.unidadeMedida} em estoque)</option>`
+  ).join("");
+
+  abrirModal(`
+    <div class="modal-title">Registrar entrada</div>
+    <p style="font-size:12.5px; color:var(--text-secondary); margin:-8px 0 16px;">
+      Para entradas vindas de compra com nota fiscal, use a aba <strong style="color:var(--text-primary)">Notas Fiscais</strong> — ela atualiza tudo automaticamente. Use esta opção para entradas avulsas (ex: devolução, ajuste manual).
+    </p>
+    <form id="entradaForm">
+      <div class="field"><label>Produto</label><select id="enProduto" required><option value="">Selecione…</option>${opcoesProduto}</select></div>
+      <div class="field"><label>Quantidade</label><input type="number" id="enQtd" min="0.01" step="0.01" required></div>
+      <div class="field"><label>Documento (opcional)</label><input type="text" id="enDocumento" placeholder="Ex: NF-1234 ou comprovante"></div>
+      <div class="field"><label>Motivo</label><input type="text" id="enMotivo" placeholder="Ex: Devolução de material"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="fecharModal()">Cancelar</button>
+        <button type="submit" class="btn primary">Confirmar entrada</button>
+      </div>
+    </form>
+  `);
+
+  document.getElementById("entradaForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const quantidade = parseFloat(document.getElementById("enQtd").value);
+    if (!quantidade || quantidade <= 0) {
+      mostrarToast("Informe uma quantidade válida.", "error");
+      return;
+    }
+    try {
+      await api("POST", "/movimentacoes", {
+        produtoId: parseInt(document.getElementById("enProduto").value, 10),
+        tipo: "entrada",
+        quantidade,
+        documento: document.getElementById("enDocumento").value,
+        motivo: document.getElementById("enMotivo").value || "Entrada avulsa"
+      });
+      fecharModal();
+      mostrarToast("Entrada registrada com sucesso.", "success");
+      trocarView("estoque");
+    } catch (err) {
+      mostrarToast(err.message, "error");
+    }
+  });
+}
+
+// ---------- Notas Fiscais ----------
+async function carregarNotasFiscais() {
+  notasFiscaisCache = await api("GET", "/notas-fiscais");
+  renderNotasFiscais(notasFiscaisCache);
+}
+
+function renderNotasFiscais(lista) {
+  document.getElementById("notaTable").innerHTML = lista.length ? lista.map(n => `
+    <tr>
+      <td style="font-family:var(--font-mono);">${n.numero}${n.serie ? `/${n.serie}` : ""}</td>
+      <td>${n.fornecedor}</td>
+      <td style="color:var(--text-secondary)">${n.dataEmissao ? formatarData(n.dataEmissao) : "—"}</td>
+      <td class="qty-cell">R$ ${Number(n.valorTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+      <td class="qty-cell">${n.itens.length}</td>
+      <td><span class="badge ${n.origem === 'xml' ? 'info' : 'saudavel'}"><i></i>${n.origem === 'xml' ? 'XML' : 'Manual'}</span></td>
+      <td>${n.usuarioNome}</td>
+    </tr>`).join("") : '<tr class="empty-row"><td colspan="7">Nenhuma nota fiscal lançada ainda.</td></tr>';
+}
+
+function filtrarNotas(e) {
+  const q = normalizarTexto(e.target.value);
+  renderNotasFiscais(notasFiscaisCache.filter(n =>
+    normalizarTexto(n.numero).includes(q) || normalizarTexto(n.fornecedor).includes(q) || normalizarTexto(n.chaveAcesso || "").includes(q)
+  ));
+}
+
+async function tratarUploadXml(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const texto = await file.text();
+  try {
+    const preview = await api("POST", "/notas-fiscais/importar-xml", { xml: texto });
+    if (!fornecedoresCache.length) fornecedoresCache = await api("GET", "/fornecedores");
+    if (!produtosCache.length) produtosCache = await api("GET", "/produtos");
+    abrirPrevisaoNota(preview, "xml");
+  } catch (err) {
+    mostrarToast(err.message, "error");
+  } finally {
+    e.target.value = ""; // permite reimportar o mesmo arquivo depois, se preciso
+  }
+}
+
+async function abrirModalNotaManual() {
+  if (!fornecedoresCache.length) fornecedoresCache = await api("GET", "/fornecedores");
+  if (!produtosCache.length) produtosCache = await api("GET", "/produtos");
+  if (!fornecedoresCache.length) {
+    mostrarToast("Cadastre ao menos um fornecedor antes de lançar uma nota.", "error");
+    return;
+  }
+  abrirPrevisaoNota({
+    numero: "", serie: "", dataEmissao: new Date().toISOString().slice(0, 10), valorTotal: 0,
+    chaveAcesso: null, fornecedor: { nome: "", cnpj: "" }, fornecedorId: null, itens: []
+  }, "manual");
+}
+
+let itensNotaAtual = [];
+
+function abrirPrevisaoNota(preview, origem) {
+  itensNotaAtual = (preview.itens || []).map(it => ({ ...it }));
+
+  const opcoesFornecedor = fornecedoresCache.map(f =>
+    `<option value="${f.id}" ${preview.fornecedorId === f.id ? "selected" : ""}>${f.nome}</option>`
+  ).join("");
+
+  abrirModal(`
+    <div class="modal-title">${origem === "xml" ? "Confirmar importação da NF-e" : "Lançar nota fiscal manual"}</div>
+    ${origem === "xml" ? `<p style="font-size:12.5px; color:var(--text-secondary); margin:-8px 0 14px;">Confira os dados extraídos do XML antes de confirmar. Itens sem produto correspondente pedem que você vincule ou cadastre um novo.</p>` : ""}
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+      <div class="field"><label>Número da nota</label><input type="text" id="nfNumero" value="${preview.numero || ""}" required></div>
+      <div class="field"><label>Série</label><input type="text" id="nfSerie" value="${preview.serie || ""}"></div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+      <div class="field"><label>Data de emissão</label><input type="date" id="nfData" value="${(preview.dataEmissao || "").slice(0, 10)}"></div>
+      <div class="field"><label>Valor total (R$)</label><input type="number" id="nfValor" min="0" step="0.01" value="${preview.valorTotal || 0}"></div>
+    </div>
+
+    <div class="field">
+      <label>Fornecedor</label>
+      ${fornecedoresCache.length ? `
+        <select id="nfFornecedor" onchange="document.getElementById('nfFornecedorNovoBox').classList.toggle('hidden', this.value !== '__novo__')">
+          <option value="">Selecione…</option>
+          ${opcoesFornecedor}
+          <option value="__novo__" ${!preview.fornecedorId ? "selected" : ""}>+ Cadastrar novo fornecedor</option>
+        </select>` : `<input type="hidden" id="nfFornecedor" value="__novo__">`}
+    </div>
+    <div id="nfFornecedorNovoBox" class="${preview.fornecedorId ? "hidden" : ""}" style="background:var(--bg-panel-2); border:1px solid var(--border); border-radius:8px; padding:10px; margin:-6px 0 14px;">
+      <div class="field" style="margin-bottom:8px;"><label>Nome do novo fornecedor</label><input type="text" id="nfNovoNome" value="${preview.fornecedor ? (preview.fornecedor.nome || "") : ""}"></div>
+      <div class="field" style="margin-bottom:0;"><label>CNPJ</label><input type="text" id="nfNovoCnpj" value="${preview.fornecedor ? (preview.fornecedor.cnpj || "") : ""}"></div>
+    </div>
+
+    <div class="panel-title" style="margin-bottom:8px;">Itens da nota <span class="muted" id="nfItensCount"></span></div>
+    <div id="nfItensLista"></div>
+    ${origem === "manual" ? `<button type="button" class="btn" style="margin-top:8px;" onclick="adicionarItemNota()">+ Adicionar item</button>` : ""}
+
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="fecharModal()">Cancelar</button>
+      <button type="button" class="btn primary" onclick="confirmarNota('${origem}')">Confirmar e lançar nota</button>
+    </div>
+  `);
+
+  renderItensNota();
+}
+
+function renderItensNota() {
+  const opcoesProdutoBase = produtosCache.map(p => `<option value="${p.id}">${p.nome} (${p.codigoInterno})</option>`).join("");
+
+  document.getElementById("nfItensCount").textContent = `${itensNotaAtual.length} ${itensNotaAtual.length === 1 ? "item" : "itens"}`;
+  document.getElementById("nfItensLista").innerHTML = itensNotaAtual.length ? itensNotaAtual.map((item, i) => `
+    <div style="border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:8px;">
+      <div style="display:flex; gap:8px; align-items:flex-start;">
+        <div style="flex:1;">
+          <div style="font-size:12.5px; font-weight:500;">${item.descricao || "(sem descrição)"}</div>
+          <div class="prod-code">Código na nota: ${item.codigoInterno || "—"}${item.codigoBarras ? ` · EAN ${item.codigoBarras}` : ""}</div>
+        </div>
+        <button type="button" class="icon-action danger" title="Remover item" onclick="removerItemNota(${i})">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:14px;height:14px;"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+        </button>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:8px;">
+        <div class="field" style="margin-bottom:0;"><label>Quantidade</label><input type="number" min="0.01" step="0.01" value="${item.quantidade}" data-item-field="quantidade" data-item-index="${i}"></div>
+        <div class="field" style="margin-bottom:0;"><label>Valor unitário (R$)</label><input type="number" min="0" step="0.01" value="${item.valorUnitario || 0}" data-item-field="valorUnitario" data-item-index="${i}"></div>
+        <div class="field" style="margin-bottom:0;"><label>Unidade</label><input type="text" value="${item.unidadeMedida || 'un'}" data-item-field="unidadeMedida" data-item-index="${i}"></div>
+      </div>
+      <div class="field" style="margin:8px 0 0;">
+        <label>Produto no sistema</label>
+        <select data-item-produto="${i}" onchange="alternarNovoProdutoItem(${i}, this.value)">
+          <option value="">— vincular a um produto existente —</option>
+          ${opcoesProdutoBase}
+          <option value="__novo__" ${!item.produtoId ? "selected" : ""}>+ Cadastrar produto novo</option>
+        </select>
+        ${item.produtoId ? `<div style="font-size:11.5px; color:var(--success-text); margin-top:4px;">✓ Vinculado automaticamente a "${item.produtoNomeAtual}" (estoque atual: ${item.quantidadeAtualEstoque})</div>` : ""}
+      </div>
+      <div data-novo-produto-box="${i}" class="${item.produtoId ? 'hidden' : ''}" style="background:var(--bg-panel-2); border:1px solid var(--border); border-radius:8px; padding:10px; margin-top:8px;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <div class="field" style="margin-bottom:8px;"><label>Nome do produto</label><input type="text" value="${item.descricao || ''}" data-item-field="novoNome" data-item-index="${i}"></div>
+          <div class="field" style="margin-bottom:8px;"><label>Código interno</label><input type="text" value="${item.codigoInterno || ''}" data-item-field="novoCodigo" data-item-index="${i}"></div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <div class="field" style="margin-bottom:0;"><label>Categoria</label><input type="text" placeholder="Ex: Elétrica" data-item-field="novaCategoria" data-item-index="${i}"></div>
+          <div class="field" style="margin-bottom:0;"><label>Estoque mínimo</label><input type="number" min="0" value="0" data-item-field="novoMinimo" data-item-index="${i}"></div>
+        </div>
+      </div>
+    </div>
+  `).join("") : '<p style="color:var(--text-muted); font-size:12.5px;">Nenhum item ainda. Use "Adicionar item" abaixo.</p>';
+
+  // Pré-seleciona o produto correspondente quando o item já veio casado do XML
+  itensNotaAtual.forEach((item, i) => {
+    if (item.produtoId) {
+      const sel = document.querySelector(`[data-item-produto="${i}"]`);
+      if (sel) sel.value = String(item.produtoId);
+    }
+  });
+}
+
+function alternarNovoProdutoItem(index, valor) {
+  itensNotaAtual[index].produtoId = (valor && valor !== "__novo__") ? parseInt(valor, 10) : null;
+  const box = document.querySelector(`[data-novo-produto-box="${index}"]`);
+  if (box) box.classList.toggle("hidden", !!itensNotaAtual[index].produtoId);
+}
+
+function adicionarItemNota() {
+  itensNotaAtual.push({ codigoInterno: "", codigoBarras: null, descricao: "", unidadeMedida: "un", quantidade: 1, valorUnitario: 0, produtoId: null });
+  renderItensNota();
+}
+
+function removerItemNota(index) {
+  itensNotaAtual.splice(index, 1);
+  renderItensNota();
+}
+
+async function confirmarNota(origem) {
+  // Sincroniza os valores editados dos campos de cada item de volta em itensNotaAtual
+  document.querySelectorAll("[data-item-field]").forEach(input => {
+    const i = parseInt(input.dataset.itemIndex, 10);
+    const campo = input.dataset.itemField;
+    if (campo === "quantidade" || campo === "valorUnitario" || campo === "novoMinimo") {
+      itensNotaAtual[i][campo] = parseFloat(input.value || 0);
+    } else {
+      itensNotaAtual[i][campo] = input.value;
+    }
+  });
+
+  const numero = document.getElementById("nfNumero").value.trim();
+  if (!numero) { mostrarToast("Informe o número da nota.", "error"); return; }
+  if (!itensNotaAtual.length) { mostrarToast("Adicione ao menos um item à nota.", "error"); return; }
+
+  const fornecedorSelect = document.getElementById("nfFornecedor").value;
+  let fornecedorId = null;
+  let fornecedorNovo = null;
+  if (fornecedorSelect === "__novo__") {
+    const nome = document.getElementById("nfNovoNome").value.trim();
+    if (!nome) { mostrarToast("Informe o nome do novo fornecedor.", "error"); return; }
+    fornecedorNovo = { nome, cnpj: document.getElementById("nfNovoCnpj").value.trim() };
+  } else if (fornecedorSelect) {
+    fornecedorId = parseInt(fornecedorSelect, 10);
+  } else {
+    mostrarToast("Selecione ou cadastre um fornecedor.", "error");
+    return;
+  }
+
+  const itensPayload = itensNotaAtual.map(item => {
+    const base = {
+      codigoInterno: item.produtoId ? undefined : (item.novoCodigo || item.codigoInterno),
+      codigoBarras: item.codigoBarras || null,
+      descricao: item.descricao,
+      unidadeMedida: item.unidadeMedida || "un",
+      quantidade: item.quantidade,
+      valorUnitario: item.valorUnitario,
+      valorTotal: (item.quantidade || 0) * (item.valorUnitario || 0)
+    };
+    if (item.produtoId) {
+      base.produtoId = item.produtoId;
+      base.codigoInterno = item.codigoInterno;
+    } else {
+      base.criarProduto = {
+        nome: item.novoNome || item.descricao,
+        categoria: item.novaCategoria || "geral",
+        estoqueMinimo: item.novoMinimo || 0
+      };
+    }
+    return base;
+  });
+
+  try {
+    await api("POST", "/notas-fiscais", {
+      numero,
+      serie: document.getElementById("nfSerie").value,
+      dataEmissao: document.getElementById("nfData").value,
+      valorTotal: parseFloat(document.getElementById("nfValor").value || 0),
+      chaveAcesso: null,
+      fornecedorId,
+      fornecedorNovo,
+      origem,
+      itens: itensPayload
+    });
+    fecharModal();
+    mostrarToast("Nota lançada! Estoque atualizado automaticamente.", "success");
+    fornecedoresCache = []; // força recarregar (pode ter fornecedor novo)
+    produtosCache = []; // força recarregar (pode ter produto novo)
+    trocarView("notasFiscais");
+  } catch (err) {
+    mostrarToast(err.message, "error");
+  }
+}
+
 function abrirModalMovimentacao() {
   const opcoes = produtosCache.map(p => `<option value="${p.id}">${p.nome} (${p.quantidade} ${p.unidadeMedida} em estoque)</option>`).join("");
   abrirModal(`
@@ -562,6 +880,15 @@ async function abrirModalProduto(produto) {
         </select>
       </div>
       <div class="field"><label>Categoria</label><input type="text" id="pCategoria" placeholder="Ex: Elétrica" value="${produto ? (produto.categoria || "") : ""}"></div>
+      <div class="field"><label>Setor</label>
+        <select id="pSetor">
+          <option value="almoxarifado_central" ${produto && produto.setor === "almoxarifado_central" ? "selected" : ""}>Almoxarifado central</option>
+          <option value="producao" ${produto && produto.setor === "producao" ? "selected" : ""}>Produção</option>
+          <option value="manutencao" ${produto && produto.setor === "manutencao" ? "selected" : ""}>Manutenção</option>
+          <option value="escritorio" ${produto && produto.setor === "escritorio" ? "selected" : ""}>Escritório</option>
+          <option value="ferramentaria" ${produto && produto.setor === "ferramentaria" ? "selected" : ""}>Ferramentaria</option>
+        </select>
+      </div>
       <div class="field"><label>Localização física</label><input type="text" id="pLocal" placeholder="Ex: R03-CA-P12" value="${produto ? (produto.localizacao || "") : ""}"></div>
       <div class="field"><label>Quantidade${editando ? " atual" : " inicial"}</label><input type="number" id="pQtd" min="0" value="${produto ? produto.quantidade : 0}"></div>
       <div class="field"><label>Estoque mínimo</label><input type="number" id="pMin" min="0" value="${produto ? produto.estoqueMinimo : 0}"></div>
@@ -583,6 +910,7 @@ async function abrirModalProduto(produto) {
       nome: document.getElementById("pNome").value,
       fornecedorId: parseInt(fornecedorId, 10),
       categoria: document.getElementById("pCategoria").value,
+      setor: document.getElementById("pSetor").value,
       localizacao: document.getElementById("pLocal").value,
       quantidade: parseFloat(document.getElementById("pQtd").value || 0),
       estoqueMinimo: parseFloat(document.getElementById("pMin").value || 0),

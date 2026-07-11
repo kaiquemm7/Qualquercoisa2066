@@ -57,6 +57,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>
         Movimentações
       </div>
+      <div class="nav-item" data-view="notasFiscais">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2h9l5 5v13a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z"/><path d="M14 2v5h5"/><path d="M9 13l2 2 4-4"/></svg>
+        Notas Fiscais
+      </div>
       <div class="nav-item" data-view="fornecedores">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="7" width="15" height="11" rx="1.5"/><path d="M16 11h3.5L22 14.5V18h-6"/><circle cx="6" cy="20" r="1.7"/><circle cx="18" cy="20" r="1.7"/></svg>
         Fornecedores
@@ -144,11 +148,24 @@
     <div class="view" id="view-estoque">
       <div class="page-title-row">
         <div><div class="page-title">Estoque</div><div class="page-sub">itens cadastrados</div></div>
-        <button class="btn primary" id="btnNovoProduto">Cadastrar produto</button>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" id="btnRegistrarEntrada">Registrar entrada</button>
+          <button class="btn primary" id="btnNovoProduto">Cadastrar produto</button>
+        </div>
       </div>
-      <div class="toolbar"><input id="stockSearch" placeholder="Filtrar por nome, código, lote ou fornecedor…"></div>
+      <div class="toolbar">
+        <input id="stockSearch" placeholder="Filtrar por nome, código, lote ou fornecedor…">
+        <select id="stockSetorFiltro">
+          <option value="">Todos os setores</option>
+          <option value="almoxarifado_central">Almoxarifado central</option>
+          <option value="producao">Produção</option>
+          <option value="manutencao">Manutenção</option>
+          <option value="escritorio">Escritório</option>
+          <option value="ferramentaria">Ferramentaria</option>
+        </select>
+      </div>
       <div class="panel" style="padding:0;">
-        <div class="table-scroll"><table><thead><tr><th>Produto</th><th>Localização</th><th>Lote</th><th>Qtd.</th><th>Mínimo</th><th>Validade</th><th>Status</th><th>Ações</th></tr></thead><tbody id="stockTable"></tbody></table></div>
+        <div class="table-scroll"><table><thead><tr><th>Produto</th><th>Setor</th><th>Localização</th><th>Lote</th><th>Qtd.</th><th>Mínimo</th><th>Validade</th><th>Status</th><th>Ações</th></tr></thead><tbody id="stockTable"></tbody></table></div>
       </div>
     </div>
 
@@ -161,6 +178,22 @@
       <div class="toolbar"><input id="fornecedorSearch" placeholder="Buscar por nome, CNPJ, contato ou categoria…"></div>
       <div class="panel" style="padding:0;">
         <div class="table-scroll"><table><thead><tr><th>Fornecedor</th><th>Categoria</th><th>Contato</th><th>Telefone</th><th>Produtos</th><th>Ações</th></tr></thead><tbody id="fornecedorTable"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- NOTAS FISCAIS -->
+    <div class="view" id="view-notasFiscais">
+      <div class="page-title-row">
+        <div><div class="page-title">Notas Fiscais</div><div class="page-sub">importe o XML da NF-e ou lance manualmente — o estoque é atualizado automaticamente</div></div>
+        <div style="display:flex; gap:8px;">
+          <label class="btn" for="xmlFileInput" style="cursor:pointer;">Importar XML da NF-e</label>
+          <input type="file" id="xmlFileInput" accept=".xml" class="hidden">
+          <button class="btn primary" id="btnLancarNotaManual">Lançar nota manual</button>
+        </div>
+      </div>
+      <div class="toolbar"><input id="notaSearch" placeholder="Buscar por número, fornecedor ou chave de acesso…"></div>
+      <div class="panel" style="padding:0;">
+        <div class="table-scroll"><table><thead><tr><th>Nº Nota</th><th>Fornecedor</th><th>Data emissão</th><th>Valor total</th><th>Itens</th><th>Origem</th><th>Lançado por</th></tr></thead><tbody id="notaTable"></tbody></table></div>
       </div>
     </div>
 

@@ -12,12 +12,13 @@ const DB_FILE = path.join(__dirname, "..", "data", "db.json");
 
 function defaultData() {
   return {
-    fornecedores: [],
     usuarios: [],
     produtos: [],
+    fornecedores: [],
     movimentacoes: [],
+    notasFiscais: [],
     logs: [],
-    contadores: { produto: 0, movimentacao: 0, usuario: 0, log: 0 }
+    contadores: { produto: 0, movimentacao: 0, usuario: 0, log: 0, fornecedor: 0, notaFiscal: 0 }
   };
 }
 
@@ -26,7 +27,15 @@ function load() {
     fs.writeFileSync(DB_FILE, JSON.stringify(defaultData(), null, 2));
   }
   const raw = fs.readFileSync(DB_FILE, "utf-8");
-  return JSON.parse(raw);
+  const data = JSON.parse(raw);
+
+  // Compatibilidade com bancos criados antes de entidades mais recentes existirem
+  if (!data.fornecedores) data.fornecedores = [];
+  if (!data.contadores.fornecedor) data.contadores.fornecedor = 0;
+  if (!data.notasFiscais) data.notasFiscais = [];
+  if (!data.contadores.notaFiscal) data.contadores.notaFiscal = 0;
+
+  return data;
 }
 
 function save(data) {
