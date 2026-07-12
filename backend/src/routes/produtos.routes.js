@@ -102,6 +102,7 @@ router.post("/", authorize("administrador", "supervisor", "almoxarife"), (req, r
     estoqueMaximo: body.estoqueMaximo ? Number(body.estoqueMaximo) : null,
     valorUnitario: Number(body.valorUnitario || 0),
     foto: body.foto || null,
+    componentes: [], // ficha técnica (matérias-primas), configurável depois de criado
     criadoEm: new Date().toISOString()
   };
   data.produtos.push(novo);
@@ -140,6 +141,58 @@ router.delete("/:id", authorize("administrador", "supervisor"), (req, res) => {
   db.save(data);
   registrarLog({ usuarioId: req.usuario.id, usuarioNome: req.usuario.nome, acao: "REMOVER_PRODUTO", entidade: "produto", entidadeId: removido.id });
   res.json({ mensagem: "Produto removido." });
+});
+
+// ---------- Ficha técnica (estrutura de matérias-primas do produto) ----------
+router.get("/:id/ficha-tecnica", (req, res) => {
+  const data = db.load();
+  const produto = data.produtos.find(p => p.id === parseInt(req.params.id, 10));
+  if (!produto) return res.status(404).json({ erro: "Produto não encontrado." });
+
+  const componentes = (produto.componentes || []).map(c => {
+    const materiaPrima = data.produtos.find(p => p.id === c.produtoId);
+    return {
+      produtoId: c.produtoId,
+      quantidadePorUnidade: c.quantidadePorUnidade,
+      produtoNome: materiaPrima ? materiaPrima.nome : "(produto removido)",
+      codigoInterno: materiaPrima ? materiaPrima.codigoInterno : null,
+      unidadeMedida: materiaPrima ? materiaPrima.unidadeMedida : null,
+      estoqueAtual: materiaPrima ? materiaPrima.quantidade : null
+    };
+  });
+
+  res.json({ produtoId: produto.id, produtoNome: produto.nome, componentes });
+});
+
+router.put("/:id/ficha-tecnica", authorize("administrador", "supervisor", "almoxarife"), (req, res) => {
+  const data = db.load();
+  const produto = data.produtos.find(p => p.id === parseInt(req.params.id, 10));
+  if (!produto) return res.status(404).json({ erro: "Produto não encontrado." });
+
+  const { componentes } = req.body;
+  if (!Array.isArray(componentes)) {
+    return res.status(400).json({ erro: "Envie a lista de componentes (matérias-primas)." });
+  }
+
+  for (const c of componentes) {
+    if (!c.produtoId || !c.quantidadePorUnidade || c.quantidadePorUnidade <= 0) {
+      return res.status(400).json({ erro: "Cada componente precisa de um produto e uma quantidade por unidade maior que zero." });
+    }
+    if (parseInt(c.produtoId, 10) === produto.id) {
+      return res.status(400).json({ erro: "Um produto não pode ser componente dele mesmo." });
+    }
+    const existe = data.produtos.some(p => p.id === parseInt(c.produtoId, 10));
+    if (!existe) return res.status(400).json({ erro: `Componente com id ${c.produtoId} não foi encontrado.` });
+  }
+
+  produto.componentes = componentes.map(c => ({
+    produtoId: parseInt(c.produtoId, 10),
+    quantidadePorUnidade: Number(c.quantidadePorUnidade)
+  }));
+  db.save(data);
+
+  registrarLog({ usuarioId: req.usuario.id, usuarioNome: req.usuario.nome, acao: "ATUALIZAR_FICHA_TECNICA", entidade: "produto", entidadeId: produto.id, detalhes: `${produto.componentes.length} componente(s)` });
+  res.json({ produtoId: produto.id, componentes: produto.componentes });
 });
 
 module.exports = router;

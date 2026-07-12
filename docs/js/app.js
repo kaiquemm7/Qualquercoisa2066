@@ -14,6 +14,7 @@ let usuarioAtual = null;
 let produtosCache = [];
 let fornecedoresCache = [];
 let notasFiscaisCache = [];
+let producoesCache = [];
 
 // ---------- Boot ----------
 window.addEventListener("DOMContentLoaded", () => {
@@ -35,6 +36,8 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("xmlFileInput").addEventListener("change", tratarUploadXml);
   document.getElementById("btnLancarNotaManual").addEventListener("click", abrirModalNotaManual);
   document.getElementById("notaSearch").addEventListener("input", filtrarNotas);
+  document.getElementById("btnNovaProducao").addEventListener("click", abrirModalNovaProducao);
+  document.getElementById("producaoSearch").addEventListener("input", filtrarProducoes);
 
   if (getToken()) {
     carregarSessao();
@@ -109,6 +112,8 @@ function mostrarApp() {
   document.querySelector('label[for="xmlFileInput"]').classList.toggle("hidden", !podeLancarNota);
   document.getElementById("btnRegistrarEntrada").classList.toggle("hidden", !podeLancarNota);
 
+  document.getElementById("btnNovaProducao").classList.toggle("hidden", !["administrador","supervisor","almoxarife","producao"].includes(usuarioAtual.papel));
+
   trocarView("dashboard");
 }
 
@@ -138,6 +143,7 @@ async function trocarView(view) {
     if (view === "fornecedores") await carregarFornecedores();
     if (view === "movimentacoes") await carregarMovimentacoes();
     if (view === "notasFiscais") await carregarNotasFiscais();
+    if (view === "producao") await carregarProducoes();
     if (view === "alertas") await carregarAlertas();
     if (view === "funcionarios") await carregarFuncionarios();
     if (view === "auditoria") await carregarAuditoria();
@@ -198,6 +204,7 @@ function renderEstoque(lista) {
   const iconeEditar = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>';
   const iconeExcluir = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>';
   const iconeBaixa = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>';
+  const iconeFicha = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>';
 
   document.getElementById("stockTable").innerHTML = lista.length ? lista.map(p => `
     <tr>
@@ -214,6 +221,7 @@ function renderEstoque(lista) {
       <td><span class="badge ${p.status}"><i></i>${statusLabel[p.status] || p.status}</span></td>
       <td><div class="row-actions">
         <button class="icon-action baixa" title="Dar baixa (registrar retirada)" ${p.quantidade <= 0 ? "disabled" : ""} onclick="abrirModalBaixa(${p.id})">${iconeBaixa}</button>
+        ${podeEditar ? `<button class="icon-action" title="Ficha técnica (matérias-primas)" onclick="abrirModalFichaTecnica(${p.id})">${iconeFicha}</button>` : ""}
         ${podeEditar ? `<button class="icon-action" title="Editar produto" onclick="editarProduto(${p.id})">${iconeEditar}</button>` : ""}
         ${podeExcluir ? `<button class="icon-action danger" title="Excluir produto" onclick="excluirProduto(${p.id})">${iconeExcluir}</button>` : ""}
       </div></td>
@@ -806,6 +814,196 @@ async function confirmarNota(origem) {
     fornecedoresCache = []; // força recarregar (pode ter fornecedor novo)
     produtosCache = []; // força recarregar (pode ter produto novo)
     trocarView("notasFiscais");
+  } catch (err) {
+    mostrarToast(err.message, "error");
+  }
+}
+
+let componentesFichaAtual = [];
+let fichaTecnicaProdutoId = null;
+
+async function abrirModalFichaTecnica(produtoId) {
+  fichaTecnicaProdutoId = produtoId;
+  if (!produtosCache.length) produtosCache = await api("GET", "/produtos");
+
+  let ficha;
+  try {
+    ficha = await api("GET", `/produtos/${produtoId}/ficha-tecnica`);
+  } catch (err) {
+    mostrarToast(err.message, "error");
+    return;
+  }
+
+  componentesFichaAtual = ficha.componentes.map(c => ({ ...c }));
+
+  abrirModal(`
+    <div class="modal-title">Ficha técnica — ${ficha.produtoNome}</div>
+    <p style="font-size:12.5px; color:var(--text-secondary); margin:-8px 0 14px;">
+      Liste as matérias-primas (e a quantidade de cada uma) necessárias para fabricar <strong style="color:var(--text-primary)">1 unidade</strong> deste produto. Ao lançar uma produção, o sistema multiplica essas quantidades pela quantidade produzida e desconta tudo automaticamente do estoque.
+    </p>
+    <div id="fichaComponentesLista"></div>
+    <button type="button" class="btn" style="margin-top:8px;" onclick="adicionarComponenteFicha(${produtoId})">+ Adicionar matéria-prima</button>
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="fecharModal()">Cancelar</button>
+      <button type="button" class="btn primary" onclick="salvarFichaTecnica(${produtoId})">Salvar ficha técnica</button>
+    </div>
+  `);
+
+  renderComponentesFicha(produtoId);
+}
+
+function renderComponentesFicha(produtoId) {
+  const opcoesProduto = produtosCache
+    .filter(p => p.id !== produtoId)
+    .map(p => `<option value="${p.id}">${p.nome} (${p.codigoInterno})</option>`).join("");
+
+  document.getElementById("fichaComponentesLista").innerHTML = componentesFichaAtual.length ? componentesFichaAtual.map((c, i) => `
+    <div style="display:flex; gap:8px; align-items:flex-end; margin-bottom:8px;">
+      <div class="field" style="flex:2; margin-bottom:0;">
+        <label>Matéria-prima</label>
+        <select data-ficha-index="${i}" data-ficha-field="produtoId">
+          <option value="">Selecione…</option>
+          ${opcoesProduto}
+        </select>
+      </div>
+      <div class="field" style="flex:1; margin-bottom:0;">
+        <label>Qtd. por unidade</label>
+        <input type="number" min="0.01" step="0.01" value="${c.quantidadePorUnidade || 1}" data-ficha-index="${i}" data-ficha-field="quantidadePorUnidade">
+      </div>
+      <button type="button" class="icon-action danger" style="margin-bottom:1px;" title="Remover" onclick="removerComponenteFicha(${i})">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:14px;height:14px;"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+      </button>
+    </div>
+  `).join("") : '<p style="color:var(--text-muted); font-size:12.5px;">Nenhuma matéria-prima cadastrada ainda nesta ficha.</p>';
+
+  componentesFichaAtual.forEach((c, i) => {
+    const sel = document.querySelector(`[data-ficha-index="${i}"][data-ficha-field="produtoId"]`);
+    if (sel && c.produtoId) sel.value = String(c.produtoId);
+  });
+}
+
+function adicionarComponenteFicha(produtoId) {
+  componentesFichaAtual.push({ produtoId: null, quantidadePorUnidade: 1 });
+  renderComponentesFicha(produtoId);
+}
+
+function removerComponenteFicha(index) {
+  componentesFichaAtual.splice(index, 1);
+  renderComponentesFicha(fichaTecnicaProdutoId);
+}
+
+async function salvarFichaTecnica(produtoId) {
+  document.querySelectorAll("[data-ficha-field]").forEach(input => {
+    const i = parseInt(input.dataset.fichaIndex, 10);
+    const campo = input.dataset.fichaField;
+    componentesFichaAtual[i][campo] = campo === "quantidadePorUnidade" ? parseFloat(input.value || 0) : parseInt(input.value, 10) || null;
+  });
+
+  if (componentesFichaAtual.some(c => !c.produtoId || !c.quantidadePorUnidade)) {
+    mostrarToast("Preencha a matéria-prima e a quantidade em todas as linhas (ou remova as vazias).", "error");
+    return;
+  }
+
+  try {
+    await api("PUT", `/produtos/${produtoId}/ficha-tecnica`, { componentes: componentesFichaAtual });
+    fecharModal();
+    mostrarToast("Ficha técnica salva.", "success");
+  } catch (err) {
+    mostrarToast(err.message, "error");
+  }
+}
+
+// ---------- Produção ----------
+async function carregarProducoes() {
+  producoesCache = await api("GET", "/producao");
+  renderProducoes(producoesCache);
+}
+
+function renderProducoes(lista) {
+  document.getElementById("producaoTable").innerHTML = lista.length ? lista.map(o => `
+    <tr>
+      <td style="font-family:var(--font-mono);">#${o.id}</td>
+      <td>${o.produtoFinalNome}</td>
+      <td class="qty-cell">${o.quantidadeProduzida}</td>
+      <td style="color:var(--text-secondary)">${formatarData(o.criadoEm)}</td>
+      <td>${o.usuarioNome}</td>
+    </tr>`).join("") : '<tr class="empty-row"><td colspan="5">Nenhuma ordem de produção lançada ainda.</td></tr>';
+}
+
+function filtrarProducoes(e) {
+  const q = normalizarTexto(e.target.value);
+  renderProducoes(producoesCache.filter(o => normalizarTexto(o.produtoFinalNome).includes(q)));
+}
+
+async function abrirModalNovaProducao() {
+  if (!produtosCache.length) produtosCache = await api("GET", "/produtos");
+
+  const opcoesProduto = produtosCache.map(p => `<option value="${p.id}">${p.nome} (${p.codigoInterno})</option>`).join("");
+
+  abrirModal(`
+    <div class="modal-title">Nova ordem de produção</div>
+    <div class="field"><label>Produto final</label><select id="prodFinalSelect" onchange="atualizarPreviaProducao()"><option value="">Selecione o produto…</option>${opcoesProduto}</select></div>
+    <div class="field"><label>Quantidade a produzir</label><input type="number" id="prodFinalQtd" min="1" step="1" value="1" oninput="atualizarPreviaProducao()"></div>
+    <div id="producaoPreviaBox"></div>
+    <div class="field" style="margin-top:10px;"><label>Observações (opcional)</label><input type="text" id="prodFinalObs" placeholder="Ex: Lote referente ao pedido nº 45"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="fecharModal()">Cancelar</button>
+      <button type="button" class="btn primary" id="btnConfirmarProducao" disabled onclick="confirmarProducao()">Confirmar produção</button>
+    </div>
+  `);
+}
+
+let previaProducaoAtual = null;
+
+async function atualizarPreviaProducao() {
+  const produtoFinalId = document.getElementById("prodFinalSelect").value;
+  const quantidade = parseFloat(document.getElementById("prodFinalQtd").value || 0);
+  const box = document.getElementById("producaoPreviaBox");
+  const btnConfirmar = document.getElementById("btnConfirmarProducao");
+
+  if (!produtoFinalId || !quantidade || quantidade <= 0) {
+    box.innerHTML = "";
+    btnConfirmar.disabled = true;
+    return;
+  }
+
+  try {
+    const previa = await api("POST", "/producao/calcular", { produtoFinalId: parseInt(produtoFinalId, 10), quantidade });
+    previaProducaoAtual = previa;
+
+    box.innerHTML = `
+      <div class="panel-title" style="margin:12px 0 8px;">Matérias-primas necessárias</div>
+      ${previa.componentes.map(c => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 10px; border:1px solid var(--border); border-radius:6px; margin-bottom:6px; ${c.suficiente ? '' : 'border-color:var(--danger);'}">
+          <span style="font-size:12.5px;">${c.produtoNome}</span>
+          <span style="font-size:12px; font-family:var(--font-mono);" class="${c.suficiente ? '' : ''}">
+            <span style="color:${c.suficiente ? 'var(--text-secondary)' : 'var(--danger-text)'}">${c.quantidadeNecessaria} ${c.unidadeMedida || ''} necessário</span>
+            · disponível: ${c.estoqueAtual}
+          </span>
+        </div>
+      `).join("")}
+      ${!previa.podeProduzir ? '<p style="color:var(--danger-text); font-size:12px; margin-top:6px;">Estoque insuficiente para produzir essa quantidade em pelo menos uma matéria-prima.</p>' : ''}
+    `;
+    btnConfirmar.disabled = !previa.podeProduzir;
+  } catch (err) {
+    box.innerHTML = `<p style="color:var(--danger-text); font-size:12.5px; margin-top:10px;">${err.message}</p>`;
+    btnConfirmar.disabled = true;
+    previaProducaoAtual = null;
+  }
+}
+
+async function confirmarProducao() {
+  if (!previaProducaoAtual) return;
+  try {
+    await api("POST", "/producao", {
+      produtoFinalId: previaProducaoAtual.produtoFinalId,
+      quantidade: previaProducaoAtual.quantidade,
+      observacoes: document.getElementById("prodFinalObs").value
+    });
+    fecharModal();
+    mostrarToast("Produção lançada! Matérias-primas baixadas e estoque do produto final atualizado.", "success");
+    produtosCache = []; // força recarregar (quantidades mudaram)
+    trocarView("producao");
   } catch (err) {
     mostrarToast(err.message, "error");
   }

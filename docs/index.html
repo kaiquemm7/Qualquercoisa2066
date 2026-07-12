@@ -61,6 +61,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2h9l5 5v13a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z"/><path d="M14 2v5h5"/><path d="M9 13l2 2 4-4"/></svg>
         Notas Fiscais
       </div>
+      <div class="nav-item" data-view="producao">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        Produção
+      </div>
       <div class="nav-item" data-view="fornecedores">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="7" width="15" height="11" rx="1.5"/><path d="M16 11h3.5L22 14.5V18h-6"/><circle cx="6" cy="20" r="1.7"/><circle cx="18" cy="20" r="1.7"/></svg>
         Fornecedores
@@ -194,6 +198,18 @@
       <div class="toolbar"><input id="notaSearch" placeholder="Buscar por número, fornecedor ou chave de acesso…"></div>
       <div class="panel" style="padding:0;">
         <div class="table-scroll"><table><thead><tr><th>Nº Nota</th><th>Fornecedor</th><th>Data emissão</th><th>Valor total</th><th>Itens</th><th>Origem</th><th>Lançado por</th></tr></thead><tbody id="notaTable"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- PRODUÇÃO -->
+    <div class="view" id="view-producao">
+      <div class="page-title-row">
+        <div><div class="page-title">Produção</div><div class="page-sub">lance a produção de um produto final e o sistema dá baixa nas matérias-primas automaticamente, conforme a ficha técnica</div></div>
+        <button class="btn primary" id="btnNovaProducao">Nova ordem de produção</button>
+      </div>
+      <div class="toolbar"><input id="producaoSearch" placeholder="Buscar por produto final…"></div>
+      <div class="panel" style="padding:0;">
+        <div class="table-scroll"><table><thead><tr><th>Ordem</th><th>Produto final</th><th>Quantidade produzida</th><th>Data</th><th>Lançado por</th></tr></thead><tbody id="producaoTable"></tbody></table></div>
       </div>
     </div>
 

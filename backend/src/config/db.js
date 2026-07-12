@@ -17,8 +17,9 @@ function defaultData() {
     fornecedores: [],
     movimentacoes: [],
     notasFiscais: [],
+    producoes: [],
     logs: [],
-    contadores: { produto: 0, movimentacao: 0, usuario: 0, log: 0, fornecedor: 0, notaFiscal: 0 }
+    contadores: { produto: 0, movimentacao: 0, usuario: 0, log: 0, fornecedor: 0, notaFiscal: 0, producao: 0 }
   };
 }
 
@@ -34,6 +35,8 @@ function load() {
   if (!data.contadores.fornecedor) data.contadores.fornecedor = 0;
   if (!data.notasFiscais) data.notasFiscais = [];
   if (!data.contadores.notaFiscal) data.contadores.notaFiscal = 0;
+  if (!data.producoes) data.producoes = [];
+  if (!data.contadores.producao) data.contadores.producao = 0;
 
   return data;
 }
