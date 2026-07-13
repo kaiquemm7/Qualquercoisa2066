@@ -30,9 +30,9 @@ function calcularStatus(p) {
 
 // ---------- Listar (com busca/filtros) ----------
 router.get("/", (req, res) => {
-  const { busca, categoria, setor, status, fornecedorId } = req.query;
+  const { busca, categoria, setor, status, fornecedorId, tipo } = req.query;
   const data = db.load();
-  let produtos = data.produtos.map(p => ({ ...p, status: calcularStatus(p) }));
+  let produtos = data.produtos.map(p => ({ ...p, tipo: p.tipo || "materia_prima", status: calcularStatus(p) }));
 
   if (busca) {
     const q = normalizar(busca);
@@ -49,6 +49,7 @@ router.get("/", (req, res) => {
   if (setor) produtos = produtos.filter(p => p.setor === setor);
   if (status) produtos = produtos.filter(p => p.status === status);
   if (fornecedorId) produtos = produtos.filter(p => p.fornecedorId === parseInt(fornecedorId, 10));
+  if (tipo) produtos = produtos.filter(p => p.tipo === tipo);
 
   res.json(produtos);
 });
@@ -57,10 +58,10 @@ router.get("/:id", (req, res) => {
   const data = db.load();
   const produto = data.produtos.find(p => p.id === parseInt(req.params.id, 10));
   if (!produto) return res.status(404).json({ erro: "Produto não encontrado." });
-  res.json({ ...produto, status: calcularStatus(produto) });
+  res.json({ ...produto, tipo: produto.tipo || "materia_prima", status: calcularStatus(produto) });
 });
 
-// ---------- Criar ----------
+// ---------- Criar (matéria-prima / produto comprado) ----------
 router.post("/", authorize("administrador", "supervisor", "almoxarife"), (req, res) => {
   const body = req.body;
   if (!body.nome || !body.codigoInterno) {
@@ -80,6 +81,7 @@ router.post("/", authorize("administrador", "supervisor", "almoxarife"), (req, r
   data.contadores.produto += 1;
   const novo = {
     id: data.contadores.produto,
+    tipo: "materia_prima",
     codigoInterno: body.codigoInterno,
     codigoBarras: body.codigoBarras || null,
     qrCode: body.qrCode || null,
@@ -102,12 +104,58 @@ router.post("/", authorize("administrador", "supervisor", "almoxarife"), (req, r
     estoqueMaximo: body.estoqueMaximo ? Number(body.estoqueMaximo) : null,
     valorUnitario: Number(body.valorUnitario || 0),
     foto: body.foto || null,
-    componentes: [], // ficha técnica (matérias-primas), configurável depois de criado
+    componentes: [],
     criadoEm: new Date().toISOString()
   };
   data.produtos.push(novo);
   db.save(data);
   registrarLog({ usuarioId: req.usuario.id, usuarioNome: req.usuario.nome, acao: "CRIAR_PRODUTO", entidade: "produto", entidadeId: novo.id });
+  res.status(201).json(novo);
+});
+
+// ---------- Criar (equipamento final / fabricado internamente) ----------
+router.post("/equipamento-final", authorize("administrador", "supervisor", "almoxarife"), (req, res) => {
+  const body = req.body;
+  if (!body.nome || !body.codigoInterno) {
+    return res.status(400).json({ erro: "Nome e código interno são obrigatórios." });
+  }
+
+  const data = db.load();
+  const existeCodigo = data.produtos.some(p => p.codigoInterno === body.codigoInterno);
+  if (existeCodigo) return res.status(409).json({ erro: "Já existe um produto com este código interno." });
+
+  data.contadores.produto += 1;
+  const novo = {
+    id: data.contadores.produto,
+    tipo: "equipamento_final",
+    codigoInterno: body.codigoInterno,
+    codigoBarras: body.codigoBarras || null,
+    qrCode: null,
+    nome: body.nome,
+    categoria: body.categoria || "Equipamento",
+    fabricante: null,
+    fornecedorId: null,
+    fornecedor: null,
+    unidadeMedida: body.unidadeMedida || "un",
+    localizacao: body.localizacao || null,
+    lote: null,
+    numeroSerie: null,
+    dataFabricacao: null,
+    validade: null,
+    peso: null,
+    dimensoes: null,
+    setor: body.setor || "producao",
+    quantidade: Number(body.quantidade || 0),
+    estoqueMinimo: 0,
+    estoqueMaximo: null,
+    valorUnitario: Number(body.valorUnitario || 0),
+    foto: body.foto || null,
+    componentes: [],
+    criadoEm: new Date().toISOString()
+  };
+  data.produtos.push(novo);
+  db.save(data);
+  registrarLog({ usuarioId: req.usuario.id, usuarioNome: req.usuario.nome, acao: "CRIAR_EQUIPAMENTO_FINAL", entidade: "produto", entidadeId: novo.id });
   res.status(201).json(novo);
 });
 
@@ -169,6 +217,10 @@ router.put("/:id/ficha-tecnica", authorize("administrador", "supervisor", "almox
   const produto = data.produtos.find(p => p.id === parseInt(req.params.id, 10));
   if (!produto) return res.status(404).json({ erro: "Produto não encontrado." });
 
+  if ((produto.tipo || "materia_prima") !== "equipamento_final") {
+    return res.status(400).json({ erro: "Ficha técnica só pode ser configurada em equipamentos finais." });
+  }
+
   const { componentes } = req.body;
   if (!Array.isArray(componentes)) {
     return res.status(400).json({ erro: "Envie a lista de componentes (matérias-primas)." });
@@ -181,8 +233,11 @@ router.put("/:id/ficha-tecnica", authorize("administrador", "supervisor", "almox
     if (parseInt(c.produtoId, 10) === produto.id) {
       return res.status(400).json({ erro: "Um produto não pode ser componente dele mesmo." });
     }
-    const existe = data.produtos.some(p => p.id === parseInt(c.produtoId, 10));
-    if (!existe) return res.status(400).json({ erro: `Componente com id ${c.produtoId} não foi encontrado.` });
+    const materiaPrima = data.produtos.find(p => p.id === parseInt(c.produtoId, 10));
+    if (!materiaPrima) return res.status(400).json({ erro: `Componente com id ${c.produtoId} não foi encontrado.` });
+    if ((materiaPrima.tipo || "materia_prima") === "equipamento_final") {
+      return res.status(400).json({ erro: `"${materiaPrima.nome}" é um equipamento final e não pode ser usado como matéria-prima.` });
+    }
   }
 
   produto.componentes = componentes.map(c => ({

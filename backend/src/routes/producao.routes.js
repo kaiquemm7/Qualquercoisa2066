@@ -50,6 +50,9 @@ router.post("/calcular", (req, res) => {
   const data = db.load();
   const produtoFinal = data.produtos.find(p => p.id === parseInt(produtoFinalId, 10));
   if (!produtoFinal) return res.status(404).json({ erro: "Produto final não encontrado." });
+  if ((produtoFinal.tipo || "materia_prima") !== "equipamento_final") {
+    return res.status(400).json({ erro: `"${produtoFinal.nome}" não é um equipamento final.` });
+  }
 
   if (!produtoFinal.componentes || produtoFinal.componentes.length === 0) {
     return res.status(400).json({ erro: `"${produtoFinal.nome}" ainda não tem uma ficha técnica cadastrada. Configure os componentes dele antes de lançar produção.` });
@@ -97,6 +100,9 @@ router.post("/", authorize("administrador", "supervisor", "almoxarife", "produca
   const data = db.load();
   const produtoFinal = data.produtos.find(p => p.id === parseInt(produtoFinalId, 10));
   if (!produtoFinal) return res.status(404).json({ erro: "Produto final não encontrado." });
+  if ((produtoFinal.tipo || "materia_prima") !== "equipamento_final") {
+    return res.status(400).json({ erro: `"${produtoFinal.nome}" não é um equipamento final.` });
+  }
 
   if (!produtoFinal.componentes || produtoFinal.componentes.length === 0) {
     return res.status(400).json({ erro: `"${produtoFinal.nome}" não tem ficha técnica cadastrada.` });
