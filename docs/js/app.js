@@ -15,7 +15,6 @@ let produtosCache = [];
 let fornecedoresCache = [];
 let notasFiscaisCache = [];
 let producoesCache = [];
-let filtroTipoEstoqueAtual = "";
 
 // ---------- Boot ----------
 window.addEventListener("DOMContentLoaded", () => {
@@ -28,15 +27,6 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("sidebarOverlay").addEventListener("click", fecharSidebar);
   document.getElementById("btnNovaMovimentacao").addEventListener("click", abrirModalMovimentacao);
   document.getElementById("btnNovoProduto").addEventListener("click", () => abrirModalProduto());
-  document.getElementById("btnNovoEquipamento").addEventListener("click", () => abrirModalEquipamentoFinal());
-  document.querySelectorAll("#stockTipoTabs .tab").forEach(tab => {
-    tab.addEventListener("click", () => {
-      document.querySelectorAll("#stockTipoTabs .tab").forEach(t => t.classList.remove("active"));
-      tab.classList.add("active");
-      filtroTipoEstoqueAtual = tab.dataset.tipo;
-      filtrarEstoque();
-    });
-  });
   document.getElementById("btnNovoFuncionario").addEventListener("click", abrirModalFuncionario);
   document.getElementById("stockSearch").addEventListener("input", filtrarEstoque);
   document.getElementById("btnNovoFornecedor").addEventListener("click", () => abrirModalFornecedor());
@@ -115,7 +105,6 @@ function mostrarApp() {
   // Botões de ação restritos por papel
   document.getElementById("btnNovoFuncionario").classList.toggle("hidden", usuarioAtual.papel !== "administrador");
   document.getElementById("btnNovoProduto").classList.toggle("hidden", !["administrador","supervisor","almoxarife"].includes(usuarioAtual.papel));
-  document.getElementById("btnNovoEquipamento").classList.toggle("hidden", !["administrador","supervisor","almoxarife"].includes(usuarioAtual.papel));
   document.getElementById("btnNovoFornecedor").classList.toggle("hidden", !["administrador","supervisor","compras"].includes(usuarioAtual.papel));
 
   const podeLancarNota = ["administrador","supervisor","almoxarife","compras"].includes(usuarioAtual.papel);
@@ -221,20 +210,20 @@ function renderEstoque(lista) {
     <tr>
       <td><div class="prod-cell">
         <div class="prod-thumb">${icons.box}</div>
-        <div><div class="prod-name">${p.nome}${p.tipo === "equipamento_final" ? ' <span class="badge info" style="margin-left:4px;"><i></i>Equipamento</span>' : ""}</div><div class="prod-code">${p.codigoInterno} · ${p.categoria}${p.fornecedor ? ` · ${p.fornecedor}` : ""}</div></div>
+        <div><div class="prod-name">${p.nome}</div><div class="prod-code">${p.codigoInterno} · ${p.categoria}${p.fornecedor ? ` · ${p.fornecedor}` : ""}</div></div>
       </div></td>
       <td>${setorLabel[p.setor] || p.setor || "—"}</td>
       <td>${p.localizacao ? `<span class="tag-loc">${p.localizacao}</span>` : "—"}</td>
       <td style="font-family:var(--font-mono); color:var(--text-secondary)">${p.lote || "—"}</td>
       <td class="qty-cell">${p.quantidade} ${p.unidadeMedida}</td>
-      <td class="qty-cell" style="color:var(--text-muted)">${p.tipo === "equipamento_final" ? "—" : p.estoqueMinimo}</td>
+      <td class="qty-cell" style="color:var(--text-muted)">${p.estoqueMinimo}</td>
       <td style="color:var(--text-secondary)">${p.validade || "—"}</td>
       <td><span class="badge ${p.status}"><i></i>${statusLabel[p.status] || p.status}</span></td>
       <td><div class="row-actions">
         <button class="icon-action baixa" title="Dar baixa (registrar retirada)" ${p.quantidade <= 0 ? "disabled" : ""} onclick="abrirModalBaixa(${p.id})">${iconeBaixa}</button>
-        ${podeEditar && p.tipo === "equipamento_final" ? `<button class="icon-action" title="Ficha técnica (matérias-primas)" onclick="abrirModalFichaTecnica(${p.id})">${iconeFicha}</button>` : ""}
-        ${podeEditar ? `<button class="icon-action" title="Editar" onclick="editarProduto(${p.id})">${iconeEditar}</button>` : ""}
-        ${podeExcluir ? `<button class="icon-action danger" title="Excluir" onclick="excluirProduto(${p.id})">${iconeExcluir}</button>` : ""}
+        ${podeEditar ? `<button class="icon-action" title="Ficha técnica (matérias-primas)" onclick="abrirModalFichaTecnica(${p.id})">${iconeFicha}</button>` : ""}
+        ${podeEditar ? `<button class="icon-action" title="Editar produto" onclick="editarProduto(${p.id})">${iconeEditar}</button>` : ""}
+        ${podeExcluir ? `<button class="icon-action danger" title="Excluir produto" onclick="excluirProduto(${p.id})">${iconeExcluir}</button>` : ""}
       </div></td>
     </tr>`).join("") : '<tr class="empty-row"><td colspan="9">Nenhum produto encontrado.</td></tr>';
 }
@@ -250,8 +239,7 @@ function filtrarEstoque() {
     const bateBusca = !q || normalizarTexto(p.nome).includes(q) || normalizarTexto(p.codigoInterno).includes(q) ||
       normalizarTexto(p.lote).includes(q) || normalizarTexto(p.fornecedor).includes(q);
     const bateSetor = !setor || p.setor === setor;
-    const bateTipo = !filtroTipoEstoqueAtual || (p.tipo || "materia_prima") === filtroTipoEstoqueAtual;
-    return bateBusca && bateSetor && bateTipo;
+    return bateBusca && bateSetor;
   }));
 }
 
@@ -866,7 +854,7 @@ async function abrirModalFichaTecnica(produtoId) {
 
 function renderComponentesFicha(produtoId) {
   const opcoesProduto = produtosCache
-    .filter(p => p.id !== produtoId && p.tipo !== "equipamento_final")
+    .filter(p => p.id !== produtoId)
     .map(p => `<option value="${p.id}">${p.nome} (${p.codigoInterno})</option>`).join("");
 
   document.getElementById("fichaComponentesLista").innerHTML = componentesFichaAtual.length ? componentesFichaAtual.map((c, i) => `
@@ -950,12 +938,7 @@ function filtrarProducoes(e) {
 async function abrirModalNovaProducao() {
   if (!produtosCache.length) produtosCache = await api("GET", "/produtos");
 
-  const equipamentos = produtosCache.filter(p => p.tipo === "equipamento_final");
-  if (!equipamentos.length) {
-    mostrarToast("Cadastre um equipamento final (com ficha técnica) antes de lançar produção.", "error");
-    return;
-  }
-  const opcoesProduto = equipamentos.map(p => `<option value="${p.id}">${p.nome} (${p.codigoInterno})</option>`).join("");
+  const opcoesProduto = produtosCache.map(p => `<option value="${p.id}">${p.nome} (${p.codigoInterno})</option>`).join("");
 
   abrirModal(`
     <div class="modal-title">Nova ordem de produção</div>
@@ -1148,72 +1131,9 @@ async function abrirModalProduto(produto) {
   });
 }
 
-function abrirModalEquipamentoFinal(equipamento) {
-  const editando = !!equipamento;
-  abrirModal(`
-    <div class="modal-title">${editando ? "Editar equipamento final" : "Cadastrar equipamento final"}</div>
-    <p style="font-size:12.5px; color:var(--text-secondary); margin:-8px 0 16px;">
-      Equipamento fabricado internamente (ex: um Coletor). Não tem fornecedor nem estoque mínimo — o estoque dele sobe automaticamente quando você lança uma produção na aba <strong style="color:var(--text-primary)">Produção</strong>.
-    </p>
-    <form id="equipForm">
-      <div class="field"><label>Nome</label><input type="text" id="eqNome" value="${equipamento ? equipamento.nome : ""}" required></div>
-      <div class="field"><label>Código interno</label><input type="text" id="eqCodigo" value="${equipamento ? equipamento.codigoInterno : ""}" ${editando ? "disabled" : ""} required></div>
-      <div class="field"><label>Categoria</label><input type="text" id="eqCategoria" placeholder="Ex: Equipamento" value="${equipamento ? (equipamento.categoria || "") : ""}"></div>
-      <div class="field"><label>Unidade de medida</label><input type="text" id="eqUnidade" value="${equipamento ? (equipamento.unidadeMedida || "un") : "un"}"></div>
-      <div class="field"><label>Setor</label>
-        <select id="eqSetor">
-          <option value="producao" ${!equipamento || equipamento.setor === "producao" ? "selected" : ""}>Produção</option>
-          <option value="almoxarifado_central" ${equipamento && equipamento.setor === "almoxarifado_central" ? "selected" : ""}>Almoxarifado central</option>
-          <option value="escritorio" ${equipamento && equipamento.setor === "escritorio" ? "selected" : ""}>Escritório</option>
-        </select>
-      </div>
-      <div class="field"><label>Localização física</label><input type="text" id="eqLocal" placeholder="Ex: PA-01" value="${equipamento ? (equipamento.localizacao || "") : ""}"></div>
-      ${editando ? `<div class="field"><label>Quantidade em estoque</label><input type="number" id="eqQtd" min="0" value="${equipamento.quantidade}"></div>` : ""}
-      <div class="field"><label>Valor unitário (R$)</label><input type="number" id="eqValor" min="0" step="0.01" value="${equipamento ? equipamento.valorUnitario : 0}"></div>
-      <div class="modal-actions">
-        <button type="button" class="btn" onclick="fecharModal()">Cancelar</button>
-        <button type="submit" class="btn primary">${editando ? "Salvar alterações" : "Cadastrar"}</button>
-      </div>
-    </form>
-  `);
-
-  document.getElementById("equipForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const payload = {
-      nome: document.getElementById("eqNome").value,
-      categoria: document.getElementById("eqCategoria").value,
-      unidadeMedida: document.getElementById("eqUnidade").value,
-      setor: document.getElementById("eqSetor").value,
-      localizacao: document.getElementById("eqLocal").value,
-      valorUnitario: parseFloat(document.getElementById("eqValor").value || 0)
-    };
-    try {
-      if (editando) {
-        if (document.getElementById("eqQtd")) payload.quantidade = parseFloat(document.getElementById("eqQtd").value || 0);
-        await api("PUT", `/produtos/${equipamento.id}`, payload);
-        mostrarToast("Equipamento atualizado.", "success");
-      } else {
-        payload.codigoInterno = document.getElementById("eqCodigo").value;
-        await api("POST", "/produtos/equipamento-final", payload);
-        mostrarToast("Equipamento final cadastrado.", "success");
-      }
-      fecharModal();
-      produtosCache = [];
-      trocarView("estoque");
-    } catch (err) {
-      mostrarToast(err.message, "error");
-    }
-  });
-}
-
 async function editarProduto(id) {
   const produto = produtosCache.find(p => p.id === id);
-  if (!produto) return;
-  if ((produto.tipo || "materia_prima") === "equipamento_final") {
-    abrirModalEquipamentoFinal(produto);
-  } else {
-    abrirModalProduto(produto);
-  }
+  if (produto) abrirModalProduto(produto);
 }
 
 async function excluirProduto(id) {
