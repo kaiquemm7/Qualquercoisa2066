@@ -65,8 +65,8 @@ app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ erro: "Erro interno do servidor." });
 });
-
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`NORTA WMS backend rodando em http://localhost:${PORT}`);
 });
+  

@@ -4,7 +4,6 @@
 // compilar dependências nativas. Para produção real, trocar por
 // PostgreSQL/MySQL (a estrutura de "tabelas" abaixo já reflete o
 // modelo relacional pretendido, facilitando a migração futura).
-
 const fs = require("fs");
 const path = require("path");
 

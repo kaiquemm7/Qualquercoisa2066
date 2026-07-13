@@ -1215,6 +1215,7 @@ async function editarProduto(id) {
     abrirModalProduto(produto);
   }
 }
+
 async function excluirProduto(id) {
   const produto = produtosCache.find(p => p.id === id);
   if (!produto) return;

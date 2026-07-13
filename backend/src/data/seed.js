@@ -61,7 +61,6 @@ const dbData = {
   logs: [],
   contadores: { produto: produtos.length, movimentacao: movimentacoes.length, usuario: usuarios.length, log: 0, fornecedor: fornecedores.length, notaFiscal: 0, producao: 0 }
 };
-
 db.save(dbData);
 console.log("Banco de dados inicial criado com sucesso em src/data/db.json");
 console.log("");
