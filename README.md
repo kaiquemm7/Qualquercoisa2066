@@ -106,6 +106,42 @@ usuário da tabela acima.
 
 ## O que já está funcionando de verdade
 
+- **Produção (ficha técnica / estrutura de produto)** — para produtos que
+  são fabricados a partir de outros (ex: um "Coletor" montado com
+  rolamentos, disjuntores, parafusos etc), cadastre a **ficha técnica** dele
+  na tela Estoque (botão de ícone de lista em cada produto): liste quais
+  matérias-primas entram e em que quantidade, por unidade fabricada. Depois,
+  na aba **Produção**, é só escolher o produto final e quantas unidades
+  você vai fabricar — o sistema calcula sozinho quanto de cada matéria-prima
+  vai ser consumido, mostra se o estoque atual é suficiente, e ao confirmar
+  dá baixa em cada matéria-prima e entrada no produto final automaticamente,
+  tudo registrado como uma ordem de produção rastreável. Se faltar estoque
+  de qualquer componente, o sistema bloqueia a produção e mostra exatamente
+  o que está faltando, sem mexer em nada.
+- **Notas Fiscais** — Administrador, Supervisor, Almoxarife e Compras podem
+  lançar notas de compra de duas formas:
+  - **Importar XML da NF-e**: envie o arquivo XML da nota (o padrão usado pela
+    Receita Federal) e o sistema lê automaticamente o fornecedor, os itens,
+    quantidades e valores. Ele tenta casar cada item com um produto já
+    cadastrado (por código interno ou código de barras); os que não bateram
+    ficam marcados para você vincular a um produto existente ou cadastrar um
+    novo, tudo na mesma tela, antes de confirmar.
+  - **Lançamento manual**: para notas sem XML (ou compras sem nota formal),
+    dá pra montar a nota na mão, item por item.
+  Em ambos os casos, ao confirmar, o sistema dá entrada automaticamente na
+  quantidade de cada item, cria o fornecedor se ele ainda não existir, cria
+  produtos novos quando marcado, e registra uma movimentação de entrada para
+  cada item — tudo isso numa transação só, sem precisar repetir o trabalho
+  manualmente no Estoque ou em Movimentações depois.
+- **Registrar entrada avulsa** — na tela Estoque, um botão "Registrar
+  entrada" cobre os casos que não vêm de nota fiscal (devolução, ajuste
+  manual etc), simétrico ao "Dar baixa" que já existia para saídas.
+- **Setor no cadastro de produto + filtro por setor no Estoque** — cada
+  produto agora tem um setor (Almoxarifado central, Produção, Manutenção,
+  Escritório ou Ferramentaria), e a tela de Estoque tem um filtro para ver
+  só o que pertence a um setor específico — por exemplo, só o material do
+  Escritório.
+
 - **Login** com senha criptografada (bcrypt), bloqueio automático após 5
   tentativas erradas (15 min), e emissão de token JWT com expiração.
 - **2FA (autenticação em dois fatores)** via app autenticador (Google
@@ -139,6 +175,18 @@ usuário da tabela acima.
   tentar contornar pela API.
 - **Logout explícito** — botão de sair dedicado na barra lateral (ícone ao
   lado do perfil), sem depender de clicar no cartão do usuário.
+- **Aba de Fornecedores** — cadastro completo (nome, CNPJ, contato, telefone,
+  e-mail, endereço, categoria), com busca por qualquer desses campos
+  (inclusive sem acento). Clicar num fornecedor abre o perfil dele mostrando
+  todos os produtos vinculados a ele. Editar é liberado para Administrador,
+  Supervisor e Compras; excluir é liberado para Administrador e Supervisor —
+  e o sistema impede excluir um fornecedor que ainda tem produtos vinculados,
+  para não deixar produto "órfão".
+- **Cadastro de produto exige fornecedor** — todo produto novo precisa estar
+  vinculado a um fornecedor já cadastrado (selecionado por uma lista, não
+  digitado à mão). Isso mantém o campo consistente e é o que permite buscar
+  produtos por fornecedor. Se ainda não existir nenhum fornecedor cadastrado,
+  o sistema avisa e pede para cadastrar um primeiro.
 
 ## O que é próxima etapa (não incluído nesta primeira entrega)
 
