@@ -19,6 +19,24 @@ function defaultData() {
     notasFiscais: [],
     producoes: [],
     logs: [],
+    empresa: {
+      razaoSocial: "Modelo Equipamentos Avícolas Ltda",
+      nomeFantasia: "Modelo Equipamentos Avícolas",
+      cnpj: "",
+      ie: "",
+      im: "",
+      cnae: "2813900",
+      regimeTributario: "3",
+      endereco: "",
+      numero: "",
+      bairro: "",
+      cep: "",
+      codMunicipio: "",
+      municipio: "",
+      uf: "SP",
+      fone: "",
+      email: ""
+    },
     contadores: { produto: 0, movimentacao: 0, usuario: 0, log: 0, fornecedor: 0, notaFiscal: 0, producao: 0 }
   };
 }
@@ -37,6 +55,7 @@ function load() {
   if (!data.contadores.notaFiscal) data.contadores.notaFiscal = 0;
   if (!data.producoes) data.producoes = [];
   if (!data.contadores.producao) data.contadores.producao = 0;
+  if (!data.empresa) data.empresa = defaultData().empresa;
 
   return data;
 }

@@ -48,6 +48,10 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("notaSearch").addEventListener("input", filtrarNotas);
   document.getElementById("btnNovaProducao").addEventListener("click", abrirModalNovaProducao);
   document.getElementById("producaoSearch").addEventListener("input", filtrarProducoes);
+  document.getElementById("btnSalvarEmpresa").addEventListener("click", salvarEmpresa);
+  document.getElementById("btnGerarFiscal").addEventListener("click", () => gerarArquivoSped("fiscal"));
+  document.getElementById("btnGerarContribuicoes").addEventListener("click", () => gerarArquivoSped("contribuicoes"));
+  document.getElementById("btnGerarBlocoK").addEventListener("click", () => gerarArquivoSped("bloco-k"));
 
   if (getToken()) {
     carregarSessao();
@@ -111,6 +115,7 @@ function mostrarApp() {
   const podeGerenciarGente = ["administrador", "supervisor"].includes(usuarioAtual.papel);
   document.querySelectorAll('[data-view="funcionarios"]').forEach(el => el.classList.toggle("hidden", !podeGerenciarGente));
   document.querySelectorAll('[data-view="auditoria"]').forEach(el => el.classList.toggle("hidden", !["administrador","auditor"].includes(usuarioAtual.papel)));
+  document.querySelectorAll('[data-view="fiscal"]').forEach(el => el.classList.toggle("hidden", !["administrador","supervisor"].includes(usuarioAtual.papel)));
 
   // Botões de ação restritos por papel
   document.getElementById("btnNovoFuncionario").classList.toggle("hidden", usuarioAtual.papel !== "administrador");
@@ -155,6 +160,7 @@ async function trocarView(view) {
     if (view === "movimentacoes") await carregarMovimentacoes();
     if (view === "notasFiscais") await carregarNotasFiscais();
     if (view === "producao") await carregarProducoes();
+    if (view === "fiscal") await carregarEmpresa();
     if (view === "alertas") await carregarAlertas();
     if (view === "funcionarios") await carregarFuncionarios();
     if (view === "auditoria") await carregarAuditoria();
@@ -1021,6 +1027,75 @@ async function confirmarProducao() {
     mostrarToast("Produção lançada! Matérias-primas baixadas e estoque do produto final atualizado.", "success");
     produtosCache = []; // força recarregar (quantidades mudaram)
     trocarView("producao");
+  } catch (err) {
+    mostrarToast(err.message, "error");
+  }
+}
+
+// ---------- Fiscal / SPED ----------
+async function carregarEmpresa() {
+  const emp = await api("GET", "/empresa");
+  document.getElementById("empRazaoSocial").value = emp.razaoSocial || "";
+  document.getElementById("empNomeFantasia").value = emp.nomeFantasia || "";
+  document.getElementById("empCnpj").value = emp.cnpj || "";
+  document.getElementById("empIe").value = emp.ie || "";
+  document.getElementById("empCnae").value = emp.cnae || "";
+  document.getElementById("empRegime").value = emp.regimeTributario || "3";
+  document.getElementById("empEndereco").value = emp.endereco || "";
+  document.getElementById("empNumero").value = emp.numero || "";
+  document.getElementById("empBairro").value = emp.bairro || "";
+  document.getElementById("empCep").value = emp.cep || "";
+  document.getElementById("empMunicipio").value = emp.municipio || "";
+  document.getElementById("empCodMunicipio").value = emp.codMunicipio || "";
+  document.getElementById("empUf").value = emp.uf || "";
+  document.getElementById("empFone").value = emp.fone || "";
+  document.getElementById("empEmail").value = emp.email || "";
+}
+
+async function salvarEmpresa() {
+  try {
+    await api("PUT", "/empresa", {
+      razaoSocial: document.getElementById("empRazaoSocial").value,
+      nomeFantasia: document.getElementById("empNomeFantasia").value,
+      cnpj: document.getElementById("empCnpj").value,
+      ie: document.getElementById("empIe").value,
+      cnae: document.getElementById("empCnae").value,
+      regimeTributario: document.getElementById("empRegime").value,
+      endereco: document.getElementById("empEndereco").value,
+      numero: document.getElementById("empNumero").value,
+      bairro: document.getElementById("empBairro").value,
+      cep: document.getElementById("empCep").value,
+      municipio: document.getElementById("empMunicipio").value,
+      codMunicipio: document.getElementById("empCodMunicipio").value,
+      uf: document.getElementById("empUf").value.toUpperCase(),
+      fone: document.getElementById("empFone").value,
+      email: document.getElementById("empEmail").value
+    });
+    mostrarToast("Dados da empresa salvos.", "success");
+  } catch (err) {
+    mostrarToast(err.message, "error");
+  }
+}
+
+async function gerarArquivoSped(tipo) {
+  const dataInicio = document.getElementById("spedDataInicio").value;
+  const dataFim = document.getElementById("spedDataFim").value;
+  if (!dataInicio || !dataFim) {
+    mostrarToast("Informe a data início e a data fim do período.", "error");
+    return;
+  }
+  try {
+    const resp = await api("POST", `/sped/${tipo}`, { dataInicio, dataFim });
+    const blob = new Blob([resp.conteudo], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = resp.nomeArquivo;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    mostrarToast(`${resp.nomeArquivo} gerado.`, "success");
   } catch (err) {
     mostrarToast(err.message, "error");
   }

@@ -11,6 +11,8 @@ const produtosRoutes = require("./src/routes/produtos.routes");
 const fornecedoresRoutes = require("./src/routes/fornecedores.routes");
 const notasFiscaisRoutes = require("./src/routes/notasFiscais.routes");
 const producaoRoutes = require("./src/routes/producao.routes");
+const empresaRoutes = require("./src/routes/empresa.routes");
+const spedRoutes = require("./src/routes/sped.routes");
 const movimentacoesRoutes = require("./src/routes/movimentacoes.routes");
 const dashboardRoutes = require("./src/routes/dashboard.routes");
 const alertasRoutes = require("./src/routes/alertas.routes");
@@ -41,6 +43,8 @@ app.use("/api/produtos", produtosRoutes);
 app.use("/api/fornecedores", fornecedoresRoutes);
 app.use("/api/notas-fiscais", notasFiscaisRoutes);
 app.use("/api/producao", producaoRoutes);
+app.use("/api/empresa", empresaRoutes);
+app.use("/api/sped", spedRoutes);
 app.use("/api/movimentacoes", movimentacoesRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/alertas", alertasRoutes);
@@ -70,4 +74,3 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`NORTA WMS backend rodando em http://localhost:${PORT}`);
 });
-  

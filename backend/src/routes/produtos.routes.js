@@ -105,6 +105,14 @@ router.post("/", authorize("administrador", "supervisor", "almoxarife"), (req, r
     valorUnitario: Number(body.valorUnitario || 0),
     foto: body.foto || null,
     componentes: [],
+    ncm: body.ncm || "00000000",
+    cfopPadrao: body.cfopPadrao || "1102",
+    cstIcms: body.cstIcms || "000",
+    aliquotaIcms: Number(body.aliquotaIcms || 0),
+    cstPis: body.cstPis || "01",
+    aliquotaPis: Number(body.aliquotaPis || 1.65),
+    cstCofins: body.cstCofins || "01",
+    aliquotaCofins: Number(body.aliquotaCofins || 7.6),
     criadoEm: new Date().toISOString()
   };
   data.produtos.push(novo);
@@ -151,6 +159,14 @@ router.post("/equipamento-final", authorize("administrador", "supervisor", "almo
     valorUnitario: Number(body.valorUnitario || 0),
     foto: body.foto || null,
     componentes: [],
+    ncm: body.ncm || "00000000",
+    cfopPadrao: body.cfopPadrao || "5101",
+    cstIcms: body.cstIcms || "000",
+    aliquotaIcms: Number(body.aliquotaIcms || 0),
+    cstPis: body.cstPis || "01",
+    aliquotaPis: Number(body.aliquotaPis || 1.65),
+    cstCofins: body.cstCofins || "01",
+    aliquotaCofins: Number(body.aliquotaCofins || 7.6),
     criadoEm: new Date().toISOString()
   };
   data.produtos.push(novo);
