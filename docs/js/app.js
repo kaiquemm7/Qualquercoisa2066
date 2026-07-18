@@ -52,6 +52,9 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnGerarFiscal").addEventListener("click", () => gerarArquivoSped("fiscal"));
   document.getElementById("btnGerarContribuicoes").addEventListener("click", () => gerarArquivoSped("contribuicoes"));
   document.getElementById("btnGerarBlocoK").addEventListener("click", () => gerarArquivoSped("bloco-k"));
+  document.getElementById("btnBuscarNcm").addEventListener("click", buscarNcm);
+  document.getElementById("ncmBusca").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); buscarNcm(); } });
+  document.getElementById("btnConferirNcmProdutos").addEventListener("click", conferirNcmProdutos);
 
   if (getToken()) {
     carregarSessao();
@@ -724,6 +727,16 @@ function renderItensNota() {
         </select>
         ${item.produtoId ? `<div style="font-size:11.5px; color:var(--success-text); margin-top:4px;">✓ Vinculado automaticamente a "${item.produtoNomeAtual}" (estoque atual: ${item.quantidadeAtualEstoque})</div>` : ""}
       </div>
+      <div class="panel-title" style="font-size:11.5px; margin:10px 0 6px; color:var(--text-secondary);">Dados fiscais (usados na geração do SPED)</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+        <div class="field" style="margin-bottom:0;"><label>NCM</label><input type="text" placeholder="00000000" value="${item.ncm || ''}" data-item-field="ncm" data-item-index="${i}"></div>
+        <div class="field" style="margin-bottom:0;"><label>CFOP</label><input type="text" placeholder="1102" value="${item.cfop || ''}" data-item-field="cfop" data-item-index="${i}"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:8px;">
+        <div class="field" style="margin-bottom:0;"><label>CST ICMS</label><input type="text" placeholder="000" value="${item.cstIcms || ''}" data-item-field="cstIcms" data-item-index="${i}"></div>
+        <div class="field" style="margin-bottom:0;"><label>CST PIS</label><input type="text" placeholder="01" value="${item.cstPis || ''}" data-item-field="cstPis" data-item-index="${i}"></div>
+        <div class="field" style="margin-bottom:0;"><label>CST COFINS</label><input type="text" placeholder="01" value="${item.cstCofins || ''}" data-item-field="cstCofins" data-item-index="${i}"></div>
+      </div>
       <div data-novo-produto-box="${i}" class="${item.produtoId ? 'hidden' : ''}" style="background:var(--bg-panel-2); border:1px solid var(--border); border-radius:8px; padding:10px; margin-top:8px;">
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
           <div class="field" style="margin-bottom:8px;"><label>Nome do produto</label><input type="text" value="${item.descricao || ''}" data-item-field="novoNome" data-item-index="${i}"></div>
@@ -750,10 +763,22 @@ function alternarNovoProdutoItem(index, valor) {
   itensNotaAtual[index].produtoId = (valor && valor !== "__novo__") ? parseInt(valor, 10) : null;
   const box = document.querySelector(`[data-novo-produto-box="${index}"]`);
   if (box) box.classList.toggle("hidden", !!itensNotaAtual[index].produtoId);
+
+  // Ao vincular a um produto existente, sugere os dados fiscais dele se os campos ainda estiverem vazios
+  if (itensNotaAtual[index].produtoId) {
+    const produto = produtosCache.find(p => p.id === itensNotaAtual[index].produtoId);
+    if (produto) {
+      const mapaCampos = { ncm: produto.ncm, cfop: produto.cfopPadrao, cstIcms: produto.cstIcms, cstPis: produto.cstPis, cstCofins: produto.cstCofins };
+      Object.entries(mapaCampos).forEach(([campo, valorPadrao]) => {
+        const input = document.querySelector(`[data-item-field="${campo}"][data-item-index="${index}"]`);
+        if (input && !input.value && valorPadrao) input.value = valorPadrao;
+      });
+    }
+  }
 }
 
 function adicionarItemNota() {
-  itensNotaAtual.push({ codigoInterno: "", codigoBarras: null, descricao: "", unidadeMedida: "un", quantidade: 1, valorUnitario: 0, produtoId: null });
+  itensNotaAtual.push({ codigoInterno: "", codigoBarras: null, descricao: "", unidadeMedida: "un", quantidade: 1, valorUnitario: 0, produtoId: null, ncm: "", cfop: "", cstIcms: "", cstPis: "", cstCofins: "" });
   renderItensNota();
 }
 
@@ -800,7 +825,12 @@ async function confirmarNota(origem) {
       unidadeMedida: item.unidadeMedida || "un",
       quantidade: item.quantidade,
       valorUnitario: item.valorUnitario,
-      valorTotal: (item.quantidade || 0) * (item.valorUnitario || 0)
+      valorTotal: (item.quantidade || 0) * (item.valorUnitario || 0),
+      ncm: item.ncm || null,
+      cfop: item.cfop || null,
+      cstIcms: item.cstIcms || null,
+      cstPis: item.cstPis || null,
+      cstCofins: item.cstCofins || null
     };
     if (item.produtoId) {
       base.produtoId = item.produtoId;
@@ -1101,6 +1131,66 @@ async function gerarArquivoSped(tipo) {
   }
 }
 
+async function buscarNcm() {
+  const termo = document.getElementById("ncmBusca").value.trim();
+  const box = document.getElementById("ncmResultados");
+  if (!termo) {
+    box.innerHTML = '<p style="color:var(--danger-text); font-size:12.5px;">Digite um código ou termo pra buscar.</p>';
+    return;
+  }
+  box.innerHTML = '<p style="color:var(--text-muted); font-size:12.5px;">Consultando tabela oficial da Receita Federal…</p>';
+
+  const somenteDigitos = termo.replace(/\D/g, "");
+  try {
+    if (somenteDigitos.length >= 2 && somenteDigitos === termo.replace(/[.\s]/g, "")) {
+      const ncm = await api("GET", `/ncm/${somenteDigitos}`);
+      box.innerHTML = renderResultadoNcm([ncm]);
+    } else {
+      const lista = await api("GET", `/ncm?busca=${encodeURIComponent(termo)}`);
+      box.innerHTML = lista.length ? renderResultadoNcm(lista) : '<p style="color:var(--text-muted); font-size:12.5px;">Nenhum NCM encontrado para esse termo.</p>';
+    }
+  } catch (err) {
+    box.innerHTML = `<p style="color:var(--danger-text); font-size:12.5px;">${err.message}</p>`;
+  }
+}
+
+function renderResultadoNcm(lista) {
+  return lista.map(n => `
+    <div style="padding:9px 12px; border:1px solid var(--border); border-radius:6px; margin-bottom:6px;">
+      <span style="font-family:var(--font-mono); color:var(--accent-text); font-weight:500;">${n.codigo}</span>
+      <span style="font-size:12.5px; color:var(--text-secondary); margin-left:8px;">${n.descricao}</span>
+    </div>
+  `).join("");
+}
+
+async function conferirNcmProdutos() {
+  const box = document.getElementById("ncmConferenciaResultado");
+  box.innerHTML = '<p style="color:var(--text-muted); font-size:12.5px;">Conferindo produtos, um por um…</p>';
+
+  const lista = await api("GET", "/produtos");
+  const resultados = [];
+  for (const p of lista) {
+    const codigo = (p.ncm || "").replace(/\D/g, "");
+    if (!codigo || codigo === "00000000") {
+      resultados.push({ produto: p, status: "sem", texto: "Sem NCM cadastrado" });
+      continue;
+    }
+    try {
+      const ncm = await api("GET", `/ncm/${codigo}`);
+      resultados.push({ produto: p, status: "ok", texto: ncm.descricao });
+    } catch (err) {
+      resultados.push({ produto: p, status: "erro", texto: err.message });
+    }
+  }
+
+  box.innerHTML = resultados.map(r => `
+    <div style="display:flex; justify-content:space-between; gap:10px; padding:8px 12px; border:1px solid var(--border); border-radius:6px; margin-bottom:6px; ${r.status !== 'ok' ? 'border-color:var(--warning);' : ''}">
+      <span style="font-size:12.5px;">${r.produto.nome} <span class="prod-code">(${r.produto.ncm || 'sem NCM'})</span></span>
+      <span style="font-size:11.5px; color:${r.status === 'ok' ? 'var(--success-text)' : 'var(--warning-text)'}; text-align:right;">${r.status === 'ok' ? '✓ ' : '⚠ '}${r.texto}</span>
+    </div>
+  `).join("") || '<p style="color:var(--text-muted); font-size:12.5px;">Nenhum produto cadastrado ainda.</p>';
+}
+
 function abrirModalMovimentacao() {
   const opcoes = produtosCache.map(p => `<option value="${p.id}">${p.nome} (${p.quantidade} ${p.unidadeMedida} em estoque)</option>`).join("");
   abrirModal(`
@@ -1138,6 +1228,66 @@ function abrirModalMovimentacao() {
       trocarView("movimentacoes");
     } catch (err) {
       mostrarToast(err.message, "error");
+    }
+  });
+}
+
+function camposFiscaisHtml(prefixo, produto) {
+  return `
+    <div class="panel-title" style="font-size:11.5px; margin:14px 0 6px; color:var(--text-secondary);">Dados fiscais</div>
+    <div class="field">
+      <label>NCM</label>
+      <div style="display:flex; gap:6px;">
+        <input type="text" id="${prefixo}Ncm" placeholder="00000000" value="${produto ? (produto.ncm || "") : ""}" style="flex:1;">
+        <button type="button" class="btn" id="${prefixo}NcmVerificar">Verificar</button>
+      </div>
+      <div id="${prefixo}NcmResultado" style="font-size:11.5px; margin-top:5px;"></div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+      <div class="field"><label>CFOP</label><input type="text" id="${prefixo}Cfop" placeholder="1102" value="${produto ? (produto.cfopPadrao || "") : ""}"></div>
+      <div class="field"><label>CST ICMS</label><input type="text" id="${prefixo}CstIcms" placeholder="000" value="${produto ? (produto.cstIcms || "") : ""}"></div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+      <div class="field"><label>CST PIS</label><input type="text" id="${prefixo}CstPis" placeholder="01" value="${produto ? (produto.cstPis || "") : ""}"></div>
+      <div class="field"><label>CST COFINS</label><input type="text" id="${prefixo}CstCofins" placeholder="01" value="${produto ? (produto.cstCofins || "") : ""}"></div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+      <div class="field"><label>Alíq. ICMS (%)</label><input type="number" min="0" step="0.01" id="${prefixo}AliqIcms" value="${produto ? (produto.aliquotaIcms ?? 0) : 0}"></div>
+      <div class="field"><label>Alíq. PIS (%)</label><input type="number" min="0" step="0.01" id="${prefixo}AliqPis" value="${produto ? (produto.aliquotaPis ?? 1.65) : 1.65}"></div>
+      <div class="field"><label>Alíq. COFINS (%)</label><input type="number" min="0" step="0.01" id="${prefixo}AliqCofins" value="${produto ? (produto.aliquotaCofins ?? 7.6) : 7.6}"></div>
+    </div>
+  `;
+}
+
+function lerCamposFiscais(prefixo) {
+  return {
+    ncm: document.getElementById(`${prefixo}Ncm`).value.replace(/\D/g, ""),
+    cfopPadrao: document.getElementById(`${prefixo}Cfop`).value,
+    cstIcms: document.getElementById(`${prefixo}CstIcms`).value,
+    cstPis: document.getElementById(`${prefixo}CstPis`).value,
+    cstCofins: document.getElementById(`${prefixo}CstCofins`).value,
+    aliquotaIcms: parseFloat(document.getElementById(`${prefixo}AliqIcms`).value || 0),
+    aliquotaPis: parseFloat(document.getElementById(`${prefixo}AliqPis`).value || 0),
+    aliquotaCofins: parseFloat(document.getElementById(`${prefixo}AliqCofins`).value || 0)
+  };
+}
+
+function ativarVerificacaoNcm(prefixo) {
+  const btn = document.getElementById(`${prefixo}NcmVerificar`);
+  const input = document.getElementById(`${prefixo}Ncm`);
+  const resultado = document.getElementById(`${prefixo}NcmResultado`);
+  btn.addEventListener("click", async () => {
+    const codigo = input.value.replace(/\D/g, "");
+    if (!codigo) {
+      resultado.innerHTML = '<span style="color:var(--danger-text)">Digite um código NCM.</span>';
+      return;
+    }
+    resultado.innerHTML = '<span style="color:var(--text-muted)">Consultando tabela oficial da Receita Federal…</span>';
+    try {
+      const ncm = await api("GET", `/ncm/${codigo}`);
+      resultado.innerHTML = `<span style="color:var(--success-text)">✓ ${ncm.codigo} — ${ncm.descricao}</span>`;
+    } catch (err) {
+      resultado.innerHTML = `<span style="color:var(--danger-text)">✗ ${err.message}</span>`;
     }
   });
 }
@@ -1183,12 +1333,14 @@ async function abrirModalProduto(produto) {
       <div class="field"><label>Quantidade${editando ? " atual" : " inicial"}</label><input type="number" id="pQtd" min="0" value="${produto ? produto.quantidade : 0}"></div>
       <div class="field"><label>Estoque mínimo</label><input type="number" id="pMin" min="0" value="${produto ? produto.estoqueMinimo : 0}"></div>
       <div class="field"><label>Valor unitário (R$)</label><input type="number" id="pValor" min="0" step="0.01" value="${produto ? produto.valorUnitario : 0}"></div>
+      ${camposFiscaisHtml("p", produto)}
       <div class="modal-actions">
         <button type="button" class="btn" onclick="fecharModal()">Cancelar</button>
         <button type="submit" class="btn primary">${editando ? "Salvar alterações" : "Cadastrar"}</button>
       </div>
     </form>
   `);
+  ativarVerificacaoNcm("p");
   document.getElementById("prodForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const fornecedorId = document.getElementById("pFornecedor").value;
@@ -1204,7 +1356,8 @@ async function abrirModalProduto(produto) {
       localizacao: document.getElementById("pLocal").value,
       quantidade: parseFloat(document.getElementById("pQtd").value || 0),
       estoqueMinimo: parseFloat(document.getElementById("pMin").value || 0),
-      valorUnitario: parseFloat(document.getElementById("pValor").value || 0)
+      valorUnitario: parseFloat(document.getElementById("pValor").value || 0),
+      ...lerCamposFiscais("p")
     };
     try {
       if (editando) {
@@ -1245,12 +1398,14 @@ function abrirModalEquipamentoFinal(equipamento) {
       <div class="field"><label>Localização física</label><input type="text" id="eqLocal" placeholder="Ex: PA-01" value="${equipamento ? (equipamento.localizacao || "") : ""}"></div>
       ${editando ? `<div class="field"><label>Quantidade em estoque</label><input type="number" id="eqQtd" min="0" value="${equipamento.quantidade}"></div>` : ""}
       <div class="field"><label>Valor unitário (R$)</label><input type="number" id="eqValor" min="0" step="0.01" value="${equipamento ? equipamento.valorUnitario : 0}"></div>
+      ${camposFiscaisHtml("eq", equipamento)}
       <div class="modal-actions">
         <button type="button" class="btn" onclick="fecharModal()">Cancelar</button>
         <button type="submit" class="btn primary">${editando ? "Salvar alterações" : "Cadastrar"}</button>
       </div>
     </form>
   `);
+  ativarVerificacaoNcm("eq");
 
   document.getElementById("equipForm").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -1260,7 +1415,8 @@ function abrirModalEquipamentoFinal(equipamento) {
       unidadeMedida: document.getElementById("eqUnidade").value,
       setor: document.getElementById("eqSetor").value,
       localizacao: document.getElementById("eqLocal").value,
-      valorUnitario: parseFloat(document.getElementById("eqValor").value || 0)
+      valorUnitario: parseFloat(document.getElementById("eqValor").value || 0),
+      ...lerCamposFiscais("eq")
     };
     try {
       if (editando) {

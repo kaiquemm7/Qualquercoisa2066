@@ -259,6 +259,27 @@
         </div>
       </div>
 
+      <div class="panel" style="margin-bottom:14px;">
+        <div class="panel-title">Consultar NCM na tabela oficial da Receita Federal</div>
+        <p style="font-size:11.5px; color:var(--text-muted); margin-top:-6px; margin-bottom:10px;">
+          Busque por código ou por parte da descrição para confirmar se um NCM existe e conferir a classificação oficial antes de usar no cadastro de um produto.
+        </p>
+        <div class="toolbar" style="margin-bottom:10px;">
+          <input id="ncmBusca" placeholder="Ex: 8482 ou 'rolamento'">
+          <button class="btn primary" id="btnBuscarNcm">Buscar</button>
+        </div>
+        <div id="ncmResultados"></div>
+      </div>
+
+      <div class="panel" style="margin-bottom:14px;">
+        <div class="panel-title">Conferir NCM dos produtos cadastrados</div>
+        <p style="font-size:11.5px; color:var(--text-muted); margin-top:-6px; margin-bottom:10px;">
+          Confere, um por um, se os NCM cadastrados nos seus produtos existem na tabela oficial — útil antes de gerar o SPED.
+        </p>
+        <button class="btn" id="btnConferirNcmProdutos">Conferir todos os produtos</button>
+        <div id="ncmConferenciaResultado" style="margin-top:10px;"></div>
+      </div>
+
       <div class="panel">
         <div class="panel-title">Gerar arquivos do período</div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; max-width:420px;">

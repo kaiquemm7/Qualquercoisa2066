@@ -58,6 +58,11 @@ function parseNFeXML(xml) {
 
   const itens = blocosItem.map(bloco => {
     const blocoProd = (bloco.match(/<prod>([\s\S]*?)<\/prod>/i) || [])[1] || bloco;
+    const blocoImposto = (bloco.match(/<imposto>([\s\S]*?)<\/imposto>/i) || [])[1] || "";
+    const blocoIcms = (blocoImposto.match(/<ICMS>([\s\S]*?)<\/ICMS>/i) || [])[1] || "";
+    const blocoPis = (blocoImposto.match(/<PIS>([\s\S]*?)<\/PIS>/i) || [])[1] || "";
+    const blocoCofins = (blocoImposto.match(/<COFINS>([\s\S]*?)<\/COFINS>/i) || [])[1] || "";
+
     return {
       codigoInterno: extrairTag(blocoProd, "cProd"),
       codigoBarras: extrairTag(blocoProd, "cEAN"),
@@ -65,7 +70,12 @@ function parseNFeXML(xml) {
       unidadeMedida: (extrairTag(blocoProd, "uCom") || "un").toLowerCase(),
       quantidade: parseFloat(extrairTag(blocoProd, "qCom") || "0"),
       valorUnitario: parseFloat(extrairTag(blocoProd, "vUnCom") || "0"),
-      valorTotal: parseFloat(extrairTag(blocoProd, "vProd") || "0")
+      valorTotal: parseFloat(extrairTag(blocoProd, "vProd") || "0"),
+      ncm: extrairTag(blocoProd, "NCM"),
+      cfop: extrairTag(blocoProd, "CFOP"),
+      cstIcms: extrairTag(blocoIcms, "CST") || extrairTag(blocoIcms, "CSOSN"),
+      cstPis: extrairTag(blocoPis, "CST"),
+      cstCofins: extrairTag(blocoCofins, "CST")
     };
   });
 
@@ -104,6 +114,11 @@ router.post("/importar-xml", authorize("administrador", "supervisor", "almoxarif
     }
     return {
       ...item,
+      ncm: item.ncm || (produto ? produto.ncm : null),
+      cfop: item.cfop || (produto ? produto.cfopPadrao : null),
+      cstIcms: item.cstIcms || (produto ? produto.cstIcms : null),
+      cstPis: item.cstPis || (produto ? produto.cstPis : null),
+      cstCofins: item.cstCofins || (produto ? produto.cstCofins : null),
       produtoId: produto ? produto.id : null,
       produtoNomeAtual: produto ? produto.nome : null,
       quantidadeAtualEstoque: produto ? produto.quantidade : null
@@ -230,6 +245,14 @@ router.post("/", authorize("administrador", "supervisor", "almoxarife", "compras
         estoqueMaximo: item.criarProduto.estoqueMaximo ? Number(item.criarProduto.estoqueMaximo) : null,
         valorUnitario: Number(item.valorUnitario || 0),
         foto: null,
+        ncm: item.ncm || "00000000",
+        cfopPadrao: item.cfop || "1102",
+        cstIcms: item.cstIcms || "000",
+        aliquotaIcms: Number(item.aliquotaIcms || 0),
+        cstPis: item.cstPis || "01",
+        aliquotaPis: Number(item.aliquotaPis || 1.65),
+        cstCofins: item.cstCofins || "01",
+        aliquotaCofins: Number(item.aliquotaCofins || 7.6),
         criadoEm: new Date().toISOString()
       };
       data.produtos.push(produto);
@@ -239,6 +262,12 @@ router.post("/", authorize("administrador", "supervisor", "almoxarife", "compras
 
     produto.quantidade += Number(item.quantidade);
     if (item.valorUnitario) produto.valorUnitario = Number(item.valorUnitario);
+    // Dados fiscais vindos da nota (XML ou digitados) são a fonte mais confiável — atualiza o produto
+    if (item.ncm) produto.ncm = item.ncm;
+    if (item.cfop) produto.cfopPadrao = item.cfop;
+    if (item.cstIcms) produto.cstIcms = item.cstIcms;
+    if (item.cstPis) produto.cstPis = item.cstPis;
+    if (item.cstCofins) produto.cstCofins = item.cstCofins;
 
     data.contadores.movimentacao += 1;
     data.movimentacoes.push({
@@ -264,7 +293,12 @@ router.post("/", authorize("administrador", "supervisor", "almoxarife", "compras
       quantidade: Number(item.quantidade),
       valorUnitario: Number(item.valorUnitario || 0),
       valorTotal: Number(item.valorTotal || item.quantidade * (item.valorUnitario || 0)),
-      novoProduto: !item.produtoId
+      novoProduto: !item.produtoId,
+      ncm: item.ncm || produto.ncm || "00000000",
+      cfop: item.cfop || produto.cfopPadrao || "1102",
+      cstIcms: item.cstIcms || produto.cstIcms || "000",
+      cstPis: item.cstPis || produto.cstPis || "01",
+      cstCofins: item.cstCofins || produto.cstCofins || "01"
     });
   }
 

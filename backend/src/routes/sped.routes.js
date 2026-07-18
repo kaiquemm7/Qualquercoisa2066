@@ -81,8 +81,8 @@ router.post("/fiscal", (req, res) => {
     blocoC.push(linha(["C100", "0", "1", fornecedor ? `F${fornecedor.id}` : "", "55", "00", "1", n.numero, n.chaveAcesso || "", dataSped(n.dataEmissao), dataSped(n.dataEmissao), valorSped(n.valorTotal), "0", "0,00", "0,00", valorSped(n.valorTotal), "0", "0,00", "0,00", "0,00", "0,00", "0,00", "0,00", "0,00", "0,00", "0,00", "0,00", "0,00"]));
     n.itens.forEach((item, i) => {
       const produto = data.produtos.find(p => p.id === item.produtoId);
-      const cfop = (produto && produto.cfopPadrao) || "1102";
-      const cst = (produto && produto.cstIcms) || "000";
+      const cfop = item.cfop || (produto && produto.cfopPadrao) || "1102";
+      const cst = item.cstIcms || (produto && produto.cstIcms) || "000";
       blocoC.push(linha(["C170", i + 1, `P${item.produtoId}`, "", item.quantidade, produto ? produto.unidadeMedida : "un", valorSped(item.valorTotal), "0,00", "0", cst, cfop, "", valorSped(item.valorTotal), valorSped((produto && produto.aliquotaIcms) || 0), "0,00", "0,00", "0,00", "0,00", "0", "", "0,00", "0,00", "0,00"]));
     });
   });
@@ -129,9 +129,9 @@ router.post("/contribuicoes", (req, res) => {
     blocoC.push(linha(["C100", "0", "1", fornecedor ? `F${fornecedor.id}` : "", "55", "00", n.numero, n.chaveAcesso || "", dataSped(n.dataEmissao), valorSped(n.valorTotal)]));
     n.itens.forEach((item, i) => {
       const produto = data.produtos.find(p => p.id === item.produtoId);
-      const cstPis = (produto && produto.cstPis) || "01";
+      const cstPis = item.cstPis || (produto && produto.cstPis) || "01";
       const aliqPis = (produto && produto.aliquotaPis) || 1.65;
-      const cstCofins = (produto && produto.cstCofins) || "01";
+      const cstCofins = item.cstCofins || (produto && produto.cstCofins) || "01";
       const aliqCofins = (produto && produto.aliquotaCofins) || 7.6;
       const vlPis = (item.valorTotal * aliqPis) / 100;
       const vlCofins = (item.valorTotal * aliqCofins) / 100;
