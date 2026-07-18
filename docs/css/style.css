@@ -160,6 +160,13 @@ tbody tr:hover{background:var(--bg-panel-2);}
 .toast.success{border-left:3px solid var(--success); color:var(--success-text);}
 .toast.error{border-left:3px solid var(--danger); color:var(--danger-text);}
 
+.ncm-dropdown{position:absolute; top:100%; left:0; right:0; z-index:80; background:var(--bg-panel-2); border:1px solid var(--border-strong); border-radius:8px; margin-top:4px; max-height:220px; overflow-y:auto; box-shadow:0 8px 20px rgba(0,0,0,.35);}
+.ncm-dropdown-item{padding:8px 10px; cursor:pointer; border-bottom:1px solid var(--border); display:flex; gap:8px; align-items:baseline;}
+.ncm-dropdown-item:last-child{border-bottom:none;}
+.ncm-dropdown-item:hover{background:var(--bg-panel-3);}
+.ncm-dropdown-codigo{font-family:var(--font-mono); font-size:11.5px; color:var(--accent-text); flex-shrink:0;}
+.ncm-dropdown-desc{font-size:12px; color:var(--text-secondary); line-height:1.3;}
+
 /* ---------- Responsivo: tablets ---------- */
 @media (max-width: 1100px){
   .kpi-grid{grid-template-columns:repeat(3,1fr);}

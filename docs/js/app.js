@@ -52,8 +52,7 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnGerarFiscal").addEventListener("click", () => gerarArquivoSped("fiscal"));
   document.getElementById("btnGerarContribuicoes").addEventListener("click", () => gerarArquivoSped("contribuicoes"));
   document.getElementById("btnGerarBlocoK").addEventListener("click", () => gerarArquivoSped("bloco-k"));
-  document.getElementById("btnBuscarNcm").addEventListener("click", buscarNcm);
-  document.getElementById("ncmBusca").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); buscarNcm(); } });
+  ativarBuscaNcmAoDigitar();
   document.getElementById("btnConferirNcmProdutos").addEventListener("click", conferirNcmProdutos);
 
   if (getToken()) {
@@ -1131,24 +1130,36 @@ async function gerarArquivoSped(tipo) {
   }
 }
 
+function ativarBuscaNcmAoDigitar() {
+  const input = document.getElementById("ncmBusca");
+  const btn = document.getElementById("btnBuscarNcm");
+  let timer = null;
+
+  input.addEventListener("input", () => {
+    clearTimeout(timer);
+    const termo = input.value.trim();
+    if (termo.length < 2) {
+      document.getElementById("ncmResultados").innerHTML = "";
+      return;
+    }
+    timer = setTimeout(buscarNcm, 300);
+  });
+
+  btn.addEventListener("click", buscarNcm); // mantém o botão como atalho, se preferir clicar
+}
+
 async function buscarNcm() {
   const termo = document.getElementById("ncmBusca").value.trim();
   const box = document.getElementById("ncmResultados");
-  if (!termo) {
-    box.innerHTML = '<p style="color:var(--danger-text); font-size:12.5px;">Digite um código ou termo pra buscar.</p>';
+  if (termo.length < 2) {
+    box.innerHTML = '<p style="color:var(--danger-text); font-size:12.5px;">Digite ao menos 2 caracteres.</p>';
     return;
   }
-  box.innerHTML = '<p style="color:var(--text-muted); font-size:12.5px;">Consultando tabela oficial da Receita Federal…</p>';
+  box.innerHTML = '<p style="color:var(--text-muted); font-size:12.5px;">Buscando…</p>';
 
-  const somenteDigitos = termo.replace(/\D/g, "");
   try {
-    if (somenteDigitos.length >= 2 && somenteDigitos === termo.replace(/[.\s]/g, "")) {
-      const ncm = await api("GET", `/ncm/${somenteDigitos}`);
-      box.innerHTML = renderResultadoNcm([ncm]);
-    } else {
-      const lista = await api("GET", `/ncm?busca=${encodeURIComponent(termo)}`);
-      box.innerHTML = lista.length ? renderResultadoNcm(lista) : '<p style="color:var(--text-muted); font-size:12.5px;">Nenhum NCM encontrado para esse termo.</p>';
-    }
+    const lista = await api("GET", `/ncm?busca=${encodeURIComponent(termo)}`);
+    box.innerHTML = lista.length ? renderResultadoNcm(lista) : '<p style="color:var(--text-muted); font-size:12.5px;">Nenhum NCM encontrado para esse termo.</p>';
   } catch (err) {
     box.innerHTML = `<p style="color:var(--danger-text); font-size:12.5px;">${err.message}</p>`;
   }
@@ -1237,10 +1248,7 @@ function camposFiscaisHtml(prefixo, produto) {
     <div class="panel-title" style="font-size:11.5px; margin:14px 0 6px; color:var(--text-secondary);">Dados fiscais</div>
     <div class="field">
       <label>NCM</label>
-      <div style="display:flex; gap:6px;">
-        <input type="text" id="${prefixo}Ncm" placeholder="00000000" value="${produto ? (produto.ncm || "") : ""}" style="flex:1;">
-        <button type="button" class="btn" id="${prefixo}NcmVerificar">Verificar</button>
-      </div>
+      <input type="text" id="${prefixo}Ncm" placeholder="Digite o código ou o nome do produto…" value="${produto ? (produto.ncm || "") : ""}" autocomplete="off">
       <div id="${prefixo}NcmResultado" style="font-size:11.5px; margin-top:5px;"></div>
     </div>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
@@ -1273,23 +1281,61 @@ function lerCamposFiscais(prefixo) {
 }
 
 function ativarVerificacaoNcm(prefixo) {
-  const btn = document.getElementById(`${prefixo}NcmVerificar`);
-  const input = document.getElementById(`${prefixo}Ncm`);
-  const resultado = document.getElementById(`${prefixo}NcmResultado`);
-  btn.addEventListener("click", async () => {
-    const codigo = input.value.replace(/\D/g, "");
-    if (!codigo) {
-      resultado.innerHTML = '<span style="color:var(--danger-text)">Digite um código NCM.</span>';
-      return;
-    }
-    resultado.innerHTML = '<span style="color:var(--text-muted)">Consultando tabela oficial da Receita Federal…</span>';
-    try {
-      const ncm = await api("GET", `/ncm/${codigo}`);
-      resultado.innerHTML = `<span style="color:var(--success-text)">✓ ${ncm.codigo} — ${ncm.descricao}</span>`;
-    } catch (err) {
-      resultado.innerHTML = `<span style="color:var(--danger-text)">✗ ${err.message}</span>`;
-    }
+  ativarAutocompleteNcm(`${prefixo}Ncm`, `${prefixo}NcmResultado`);
+}
+
+function ativarAutocompleteNcm(inputId, resultadoId, aoSelecionar) {
+  const input = document.getElementById(inputId);
+  const resultado = document.getElementById(resultadoId);
+  let dropdown = null;
+  let timer = null;
+  let ultimaBusca = "";
+
+  function fecharDropdown() {
+    if (dropdown) { dropdown.remove(); dropdown = null; }
+  }
+
+  function abrirDropdown(lista) {
+    fecharDropdown();
+    if (!lista.length) return;
+    dropdown = document.createElement("div");
+    dropdown.className = "ncm-dropdown";
+    dropdown.innerHTML = lista.map((n, i) =>
+      `<div class="ncm-dropdown-item" data-i="${i}"><span class="ncm-dropdown-codigo">${n.codigo}</span><span class="ncm-dropdown-desc">${n.descricao}</span></div>`
+    ).join("");
+    dropdown.querySelectorAll(".ncm-dropdown-item").forEach(el => {
+      el.addEventListener("mousedown", (e) => {
+        e.preventDefault(); // evita que o blur do input feche o dropdown antes do clique registrar
+        const ncm = lista[parseInt(el.dataset.i, 10)];
+        input.value = ncm.codigo;
+        if (resultado) resultado.innerHTML = `<span style="color:var(--success-text)">✓ ${ncm.codigo} — ${ncm.descricao}</span>`;
+        fecharDropdown();
+        if (aoSelecionar) aoSelecionar(ncm);
+      });
+    });
+    input.parentElement.style.position = "relative";
+    input.parentElement.appendChild(dropdown);
+  }
+
+  input.addEventListener("input", () => {
+    clearTimeout(timer);
+    const termo = input.value.trim();
+    if (resultado) resultado.innerHTML = "";
+    if (termo.length < 2) { fecharDropdown(); return; }
+
+    timer = setTimeout(async () => {
+      if (termo === ultimaBusca) return;
+      ultimaBusca = termo;
+      try {
+        const lista = await api("GET", `/ncm?busca=${encodeURIComponent(termo)}`);
+        if (input.value.trim() === termo) abrirDropdown(lista);
+      } catch {
+        fecharDropdown();
+      }
+    }, 300);
   });
+
+  input.addEventListener("blur", () => setTimeout(fecharDropdown, 150));
 }
 
 async function abrirModalProduto(produto) {
